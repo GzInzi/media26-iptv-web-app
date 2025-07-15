@@ -28,14 +28,12 @@
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
         }
 
         .container {
             display: flex;
             width: 100%;
+            min-height: 100vh;
         }
 
         aside {
@@ -47,13 +45,11 @@
             display: flex;
             flex-direction: column;
             gap: 30px;
-            overflow-y: auto;
         }
         
         main {
             flex-grow: 1;
             padding: 30px 40px;
-            overflow-y: auto;
         }
 
         h1, h2, h3 {
@@ -172,7 +168,6 @@
         tbody .view-mode input, tbody .view-mode select { display: none; }
         tbody .edit-mode .view-span { display: none; }
         
-        /* New and updated styles for table rows */
         .row-expiring { background-color: var(--warning-bg) !important; }
         .row-expired { 
             background-color: var(--expired-bg) !important;
@@ -181,6 +176,24 @@
         
         .btn-delete { background-color: #f8d7da; color: var(--danger-color); }
         .btn-delete:hover { background-color: var(--danger-color); color: #fff; }
+
+        /* --- THIS IS THE NEW RESPONSIVE CODE --- */
+        @media (max-width: 992px) {
+            .container {
+                flex-direction: column; /* Stack sidebar and main content vertically */
+            }
+            aside {
+                width: 100%; /* Make sidebar full width */
+                box-sizing: border-box;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+            main {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -412,7 +425,6 @@
                 const today = new Date(); today.setHours(0,0,0,0);
                 const dayDiff = Math.ceil((new Date(customer.endDate) - today) / (1000 * 3600 * 24));
                 
-                // Updated highlighting logic
                 if (dayDiff < 0) {
                     row.classList.add('row-expired');
                 } else if (dayDiff < 5) {
@@ -525,3 +537,4 @@
     </script>
 </body>
 </html>
+```
