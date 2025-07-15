@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Subscription Manager</title>
+    <style>
+        /* --- Basic Setup & Color Palette --- */
+        :root {
+            --bg-color: #0d1117;
+            --card-color: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --success-color-fg: #3fb950;
+            --success-color-bg: rgba(63, 185, 80, 0.15);
+            --danger-color-fg: #f85149;
+            --danger-color-bg: rgba(248, 81, 73, 0.15);
+            --warning-color-fg: #d29922;
+            --warning-color-bg: rgba(210, 153, 34, 0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        /* --- Layout --- */
+        .container {
+            display: flex;
+            width: 100%;
+        }
+
+        aside {
+            width: 320px;
+            flex-shrink: 0;
+            background-color: var(--bg-color);
+            padding: 25px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        main {
+            flex-grow: 1;
+            padding: 25px 40px;
+            overflow-y: auto;
+        }
+
+        h1, h2, h3 {
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        h1 { font-size: 1.8em; margin-bottom: 30px; }
+        h2 { font-size: 1.5em; margin-bottom: 20px; }
+        h3 { font-size: 1.1em; margin-top: 0; margin-bottom: 15px; padding-bottom: 8px; }
+
+        /* --- Cards --- */
+        .card {
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        /* --- Financial & Summary Panel --- */
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95em;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .summary-item:last-child { border-bottom: none; margin-bottom: 0; }
+        .summary-item span:first-child { color: var(--text-secondary); }
+        .summary-item span:last-child { font-weight: 600; font-size: 1.1em; }
+        .net-profit { color: var(--success-color-fg); }
+        .total-expenses { color: var(--danger-color-fg); }
+        .summary-filter { display: flex; gap: 10px; margin-bottom: 20px; }
+
+        /* --- Forms --- */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        label { font-size: 0.9em; margin-bottom: 8px; color: var(--text-secondary); }
+        input, select, textarea {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+        }
+        input[readonly] { background-color: #22272e; cursor: not-allowed; }
+        textarea { resize: vertical; min-height: 80px; }
+        .btn {
+            padding: 12px 20px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .btn-primary { background-color: var(--success-color-fg); color: #fff; grid-column: 1 / -1; margin-top: 10px; }
+        .btn-primary:hover { background-color: #48c758; }
+        .btn-secondary { background-color: var(--accent-color); color: var(--bg-color); }
+        .btn-secondary:hover { opacity: 0.9; }
+
+        /* --- Customer Table --- */
+        .table-container { width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 8px; /* Adjusted padding for editable fields */
+            font-size: 0.95em;
+            vertical-align: middle;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+        thead th {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background-color: #1c2128;
+            padding: 15px 8px;
+        }
+        tbody tr:hover { background-color: #2a3038; }
+
+        /* Styles for editable fields in table */
+        tbody input, tbody select {
+            background-color: transparent;
+            border: 1px solid transparent;
+            padding: 7px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        tbody input:focus, tbody select:focus {
+            background-color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
+        
+        .btn-delete {
+            background-color: var(--danger-color-fg);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-delete:hover { background-color: #d43d36; }
+        
+        /* --- Row Highlighting Classes --- */
+        .row-expiring { background-color: var(--warning-color-bg) !important; }
+        .row-expiring td { color: var(--warning-color-fg); }
+        .row-expired { background-color: var(--danger-color-bg) !important; }
+        .row-expired td { color: var(--danger-color-fg); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- SIDEBAR -->
+        <aside>
+            <div class="card">
+                <h3>Summary Report</h3>
+                <div class="summary-filter">
+                    <select id="summaryMonth"></select>
+                    <select id="summaryYear"></select>
+                </div>
+                <div class="summary-item">
+                    <span>Customers This Month</span>
+                    <span id="customerCount">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>Total Income</span>
+                    <span id="totalIncome">$0.00</span>
+                </div>
+                <div class="summary-item">
+                    <span>Total Expenses</span>
+                    <span id="totalExpenses" class="total-expenses">-$0.00</span>
+                </div>
+                 <div class="summary-item">
+                    <span>Net Profit</span>
+                    <span id="netProfit" class="net-profit">$0.00</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Add Expense</h3>
+                <form id="expenseForm">
+                    <div class="form-group">
+                        <label for="expenseType">Purchasing Credits</label>
+                        <select id="expenseType" name="expenseType" required>
+                            <option value="Smart4k">Smart4k</option>
+                            <option value="Magic">Magic</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="expenseAmount">Amount ($)</label>
+                        <input type="number" id="expenseAmount" name="expenseAmount" min="0" step="0.01" required placeholder="Enter amount">
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="margin-top: 20px;">Add Expense</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main>
+            <h1>IPTV Customer Dashboard</h1>
+            <div class="card">
+                <h2>Create New Customer</h2>
+                <form id="newCustomerForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="customerName">Customer Name</label>
+                            <input type="text" id="customerName" name="customerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login">Login</label>
+                            <input type="text" id="login" name="login" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="text" id="password" name="password" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="appOrBox">App or Box</label>
+                            <select id="appOrBox" name="appOrBox" required>
+                                <optgroup label="App">
+                                    <option>SmartSTB</option>
+                                    <option>Stb Emu</option>
+                                </optgroup>
+                                <optgroup label="Box">
+                                    <option>TVIP</option>
+                                    <option>MAG</option>
+                                    <option>Other</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="macAddress">MAC Address (Optional)</label>
+                            <input type="text" id="macAddress" name="macAddress" placeholder="e.g., 00:1A:79:XX:XX:XX">
+                        </div>
+                        <div class="form-group">
+                            <label for="subscriptionType">Subscription</label>
+                            <select id="subscriptionType" name="subscriptionType" required>
+                                <option value="6">6 Months</option>
+                                <option value="1">1 Month</option>
+                                <option value="3">3 Months</option>
+                                <option value="12">12 Months</option>
+                                <option value="trial">Trial (7 days)</option>
+                            </select>
+                        </div>
+                         <div class="form-group">
+                            <label for="subscriptionDate">Subscription Date</label>
+                            <input type="date" id="subscriptionDate" name="subscriptionDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="subscriptionEndingDate">Subscription Ending Date</label>
+                            <input type="text" id="subscriptionEndingDate" name="subscriptionEndingDate" readonly>
+                        </div>
+                         <div class="form-group">
+                            <label for="paymentStatus">Payment Status</label>
+                            <select id="paymentStatus" name="paymentStatus" required>
+                                <option value="Paid">Paid</option>
+                                <option value="Unpaid">Unpaid</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="paymentAmount">Payment Amount ($)</label>
+                            <input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" value="60.00" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="specialNote">Special Note</label>
+                            <textarea id="specialNote" name="specialNote" placeholder="e.g., Customer wants sports package, renewal reminder needed..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add New Customer</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Customer List</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Customer Name</th>
+                                <th>App/Box</th>
+                                <th>Login</th>
+                                <th>Ends On</th>
+                                <th>Status</th>
+                                <th>Note</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customerTableBody">
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- STATE MANAGEMENT ---
+            let state = {
+                customers: [],
+                expenses: [],
+            };
+
+            // --- DOM ELEMENT SELECTORS ---
+            const customerForm = document.getElementById('newCustomerForm');
+            const expenseForm = document.getElementById('expenseForm');
+            const customerNameInput = document.getElementById('customerName');
+            const loginInput = document.getElementById('login');
+            const passwordInput = document.getElementById('password');
+            const customerTableBody = document.getElementById('customerTableBody');
+            const subscriptionType = document.getElementById('subscriptionType');
+            const subscriptionDate = document.getElementById('subscriptionDate');
+            const subscriptionEndingDate = document.getElementById('subscriptionEndingDate');
+            const customerCountEl = document.getElementById('customerCount');
+            const totalIncomeEl = document.getElementById('totalIncome');
+            const totalExpensesEl = document.getElementById('totalExpenses');
+            const netProfitEl = document.getElementById('netProfit');
+            const summaryMonthEl = document.getElementById('summaryMonth');
+            const summaryYearEl = document.getElementById('summaryYear');
+
+            // --- UTILITY FUNCTIONS ---
+            function formatDate(date) {
+                const d = new Date(date);
+                d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            const calculateEndDate = () => {
+                const startDate = new Date(subscriptionDate.value);
+                const type = subscriptionType.value;
+                if (!startDate.getTime()) return;
+                if (type === 'trial') {
+                    startDate.setDate(startDate.getDate() + 7);
+                } else {
+                    startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
+                }
+                subscriptionEndingDate.value = formatDate(startDate);
+            };
+            
+            const formatCurrency = (amount) => {
+                return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+            };
+
+            const generateCredentials = (fullName) => {
+                if (!fullName) {
+                    return { login: '', password: '' };
+                }
+                const names = fullName.trim().split(' ').filter(n => n);
+                const firstName = (names[0] || '').toUpperCase();
+                const lastName = (names.length > 1 ? names[names.length - 1] : '').toUpperCase();
+                const login = 'M26' + firstName.substring(0, 3);
+                let password;
+                if (lastName) {
+                    password = 'M26' + firstName.substring(0, 2) + lastName.substring(0, 2);
+                } else {
+                    password = 'M26' + firstName.substring(0, 2) + firstName.slice(-2);
+                }
+                return { login, password };
+            };
+
+            // --- RENDER/UPDATE FUNCTIONS ---
+            const updateSummary = () => {
+                const selectedMonth = summaryMonthEl.value;
+                const selectedYear = summaryYearEl.value;
+
+                // Calculate all-time totals first
+                const totalIncomeVal = state.customers
+                    .filter(c => c.status === 'Paid')
+                    .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+                const totalExpensesVal = state.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+                const netProfitVal = totalIncomeVal - totalExpensesVal;
+
+                // Then, get the count for the filtered period
+                let customersForPeriod = state.customers;
+                if (selectedMonth !== 'all') {
+                    customersForPeriod = state.customers.filter(c => {
+                        const subDate = new Date(c.subDate);
+                        return subDate.getFullYear() == selectedYear && subDate.getMonth() == selectedMonth;
+                    });
+                }
+                
+                // Update the UI
+                customerCountEl.textContent = customersForPeriod.length; // Filtered count
+                totalIncomeEl.textContent = formatCurrency(totalIncomeVal); // All-time total
+                totalExpensesEl.textContent = `-${formatCurrency(totalExpensesVal)}`; // All-time total
+                netProfitEl.textContent = formatCurrency(netProfitVal); // All-time total
+                netProfitEl.classList.toggle('net-profit', netProfitVal >= 0);
+                netProfitEl.classList.toggle('total-expenses', netProfitVal < 0);
+            };
+
+            const renderTable = () => {
+                customerTableBody.innerHTML = '';
+                if (state.customers.length === 0) {
+                    customerTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">No customers yet.</td></tr>`;
+                    return;
+                }
+                
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                state.customers.forEach((customer, index) => {
+                    const row = document.createElement('tr');
+                    const endDate = new Date(customer.endDate);
+                    endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset());
+                    const timeDiff = endDate.getTime() - today.getTime();
+                    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+                    if (dayDiff < 0) {
+                        row.classList.add('row-expired');
+                    } else if (dayDiff <= 7) {
+                        row.classList.add('row-expiring');
+                    }
+                    
+                    row.innerHTML = `
+                        <td><input type="text" value="${customer.name || ''}" data-index="${index}" data-prop="name"></td>
+                        <td>
+                            <select data-index="${index}" data-prop="app">
+                                <optgroup label="App">
+                                    <option ${customer.app === 'SmartSTB' ? 'selected' : ''}>SmartSTB</option>
+                                    <option ${customer.app === 'Stb Emu' ? 'selected' : ''}>Stb Emu</option>
+                                </optgroup>
+                                <optgroup label="Box">
+                                    <option ${customer.app === 'TVIP' ? 'selected' : ''}>TVIP</option>
+                                    <option ${customer.app === 'MAG' ? 'selected' : ''}>MAG</option>
+                                    <option ${customer.app === 'Other' ? 'selected' : ''}>Other</option>
+                                </optgroup>
+                            </select>
+                        </td>
+                        <td><input type="text" value="${customer.login || ''}" data-index="${index}" data-prop="login"></td>
+                        <td><input type="date" value="${customer.endDate || ''}" data-index="${index}" data-prop="endDate"></td>
+                        <td>
+                            <select data-index="${index}" data-prop="status">
+                                <option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                                <option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+                            </select>
+                        </td>
+                        <td><input type="text" value="${customer.note || ''}" data-index="${index}" data-prop="note"></td>
+                        <td><button class="btn-delete" data-index="${index}">Delete</button></td>
+                    `;
+                    customerTableBody.appendChild(row);
+                });
+            };
+
+            // --- EVENT HANDLERS ---
+            const handleTableEdit = (e) => {
+                const target = e.target;
+                if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+                    const index = target.dataset.index;
+                    const prop = target.dataset.prop;
+                    const value = target.value;
+
+                    state.customers[index][prop] = value;
+                    
+                    if (prop === 'endDate' || prop === 'status') {
+                        renderTable();
+                    }
+                    updateSummary();
+                }
+            };
+
+            const handleTableClick = (e) => {
+                if (e.target.classList.contains('btn-delete')) {
+                    const index = e.target.dataset.index;
+                    if (confirm(`Are you sure you want to delete ${state.customers[index].name}?`)) {
+                        state.customers.splice(index, 1);
+                        renderTable();
+                        updateSummary();
+                    }
+                }
+            };
+
+            const handleNameInput = (e) => {
+                const { login, password } = generateCredentials(e.target.value);
+                loginInput.value = login;
+                passwordInput.value = password;
+            };
+
+            const handleAddCustomer = (e) => {
+                e.preventDefault();
+                const formData = new FormData(customerForm);
+                const newCustomer = {
+                    name: formData.get('customerName'),
+                    app: formData.get('appOrBox'),
+                    login: loginInput.value, // Get value directly from the input
+                    password: passwordInput.value, // Get value directly from the input
+                    subDate: formData.get('subscriptionDate'),
+                    endDate: subscriptionEndingDate.value,
+                    status: formData.get('paymentStatus'),
+                    note: formData.get('specialNote'),
+                    amount: parseFloat(formData.get('paymentAmount')) || 0
+                };
+                state.customers.push(newCustomer);
+                renderTable();
+                updateSummary();
+                customerForm.reset();
+                initializeFormDefaults();
+            };
+
+            const handleAddExpense = (e) => {
+                e.preventDefault();
+                const amountInput = document.getElementById('expenseAmount');
+                const amount = parseFloat(amountInput.value);
+                if (isNaN(amount) || amount <= 0) {
+                    amountInput.style.borderColor = 'var(--danger-color-fg)';
+                    return;
+                }
+                amountInput.style.borderColor = 'var(--border-color)';
+                state.expenses.push({
+                    date: formatDate(new Date()),
+                    amount: amount,
+                    description: document.getElementById('expenseType').value
+                });
+                updateSummary();
+                expenseForm.reset();
+            };
+
+            // --- INITIALIZATION ---
+            const initializeFormDefaults = () => {
+                subscriptionDate.value = formatDate(new Date());
+                calculateEndDate();
+                loginInput.value = '';
+                passwordInput.value = '';
+            };
+
+            const populateDateFilters = () => {
+                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const currentYear = new Date().getFullYear();
+                const currentMonth = new Date().getMonth();
+
+                summaryMonthEl.innerHTML = `<option value="all">All Time</option>`;
+                months.forEach((month, index) => {
+                    summaryMonthEl.innerHTML += `<option value="${index}">${month}</option>`;
+                });
+
+                summaryYearEl.innerHTML = '';
+                for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                    summaryYearEl.innerHTML += `<option value="${i}">${i}</option>`;
+                }
+
+                summaryMonthEl.value = currentMonth;
+                summaryYearEl.value = currentYear;
+            };
+            
+            customerForm.addEventListener('submit', handleAddCustomer);
+            expenseForm.addEventListener('submit', handleAddExpense);
+            customerNameInput.addEventListener('input', handleNameInput);
+            subscriptionDate.addEventListener('change', calculateEndDate);
+            subscriptionType.addEventListener('change', calculateEndDate);
+            summaryMonthEl.addEventListener('change', updateSummary);
+            summaryYearEl.addEventListener('change', updateSummary);
+            customerTableBody.addEventListener('change', handleTableEdit);
+            customerTableBody.addEventListener('click', handleTableClick);
+
+            populateDateFilters();
+            initializeFormDefaults();
+            renderTable();
+            updateSummary();
+        });
+    </script>
+</body>
+</html>
