@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Subscription Manager</title>
+    <title>Media26 Iptv Web App</title>
     <style>
-        /* --- Basic Setup & Color Palette --- */
+        /* --- Premium Light Theme --- */
         :root {
-            --bg-color: #0d1117;
-            --card-color: #161b22;
-            --border-color: #30363d;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --accent-color: #58a6ff;
-            --success-color-fg: #3fb950;
-            --success-color-bg: rgba(63, 185, 80, 0.15);
-            --danger-color-fg: #f85149;
-            --danger-color-bg: rgba(248, 81, 73, 0.15);
-            --warning-color-fg: #d29922;
-            --warning-color-bg: rgba(210, 153, 34, 0.1);
+            --bg-color: #f8f9fa;
+            --card-color: #ffffff;
+            --border-color: #dee2e6;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --accent-color: #007bff;
+            --success-color-fg: #198754;
+            --success-color-bg: rgba(25, 135, 84, 0.1);
+            --danger-color-fg: #dc3545;
+            --danger-color-bg: rgba(220, 53, 69, 0.1);
+            --warning-color-fg: #ffc107;
+            --warning-color-bg: rgba(255, 193, 7, 0.15);
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
@@ -41,7 +41,7 @@
         aside {
             width: 320px;
             flex-shrink: 0;
-            background-color: var(--bg-color);
+            background-color: #e9ecef;
             padding: 25px;
             border-right: 1px solid var(--border-color);
             display: flex;
@@ -72,6 +72,7 @@
             border-radius: 8px;
             padding: 25px;
             margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
         
         /* --- Financial & Summary Panel --- */
@@ -90,7 +91,7 @@
         .total-expenses { color: var(--danger-color-fg); }
         .summary-filter { display: flex; gap: 10px; margin-bottom: 20px; }
 
-        /* --- Forms --- */
+        /* --- Forms & Search --- */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -100,7 +101,7 @@
         .form-group.full-width { grid-column: 1 / -1; }
         label { font-size: 0.9em; margin-bottom: 8px; color: var(--text-secondary); }
         input, select, textarea {
-            background-color: var(--bg-color);
+            background-color: #f8f9fa;
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 12px;
@@ -112,9 +113,10 @@
         input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
         }
-        input[readonly] { background-color: #22272e; cursor: not-allowed; }
+        input[readonly] { background-color: #e9ecef; cursor: not-allowed; }
+        .search-bar { margin-bottom: 20px; }
         textarea { resize: vertical; min-height: 80px; }
         .btn {
             padding: 12px 20px;
@@ -126,16 +128,16 @@
             transition: all 0.2s;
             width: 100%;
         }
-        .btn-primary { background-color: var(--success-color-fg); color: #fff; grid-column: 1 / -1; margin-top: 10px; }
-        .btn-primary:hover { background-color: #48c758; }
-        .btn-secondary { background-color: var(--accent-color); color: var(--bg-color); }
-        .btn-secondary:hover { opacity: 0.9; }
+        .btn-primary { background-color: var(--accent-color); color: #fff; grid-column: 1 / -1; margin-top: 10px; }
+        .btn-primary:hover { background-color: #0069d9; }
+        .btn-secondary { background-color: var(--success-color-fg); color: #fff; }
+        .btn-secondary:hover { background-color: #157347; }
 
         /* --- Customer Table --- */
         .table-container { width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; }
         th, td {
-            padding: 8px; /* Adjusted padding for editable fields */
+            padding: 8px;
             font-size: 0.95em;
             vertical-align: middle;
             border: 1px solid var(--border-color);
@@ -147,10 +149,13 @@
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            background-color: #1c2128;
+            background-color: #f8f9fa;
             padding: 15px 8px;
         }
-        tbody tr:hover { background-color: #2a3038; }
+        tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tbody tr:hover { background-color: #e9ecef; }
 
         /* Styles for editable fields in table */
         tbody input, tbody select {
@@ -161,7 +166,7 @@
             box-sizing: border-box;
         }
         tbody input:focus, tbody select:focus {
-            background-color: var(--bg-color);
+            background-color: #fff;
             border-color: var(--accent-color);
         }
         
@@ -173,13 +178,11 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .btn-delete:hover { background-color: #d43d36; }
+        .btn-delete:hover { background-color: #c82333; }
         
         /* --- Row Highlighting Classes --- */
         .row-expiring { background-color: var(--warning-color-bg) !important; }
-        .row-expiring td { color: var(--warning-color-fg); }
         .row-expired { background-color: var(--danger-color-bg) !important; }
-        .row-expired td { color: var(--danger-color-fg); }
     </style>
 </head>
 <body>
@@ -231,7 +234,7 @@
 
         <!-- MAIN CONTENT -->
         <main>
-            <h1>IPTV Customer Dashboard</h1>
+            <h1>Media26 Iptv Web App</h1>
             <div class="card">
                 <h2>Create New Customer</h2>
                 <form id="newCustomerForm">
@@ -305,6 +308,9 @@
             </div>
             <div class="card">
                 <h2>Customer List</h2>
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Search by name, app, or login...">
+                </div>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -327,273 +333,359 @@
         </main>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // --- STATE MANAGEMENT ---
-            let state = {
-                customers: [],
-                expenses: [],
-            };
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-            // --- DOM ELEMENT SELECTORS ---
-            const customerForm = document.getElementById('newCustomerForm');
-            const expenseForm = document.getElementById('expenseForm');
-            const customerNameInput = document.getElementById('customerName');
-            const loginInput = document.getElementById('login');
-            const passwordInput = document.getElementById('password');
-            const customerTableBody = document.getElementById('customerTableBody');
-            const subscriptionType = document.getElementById('subscriptionType');
-            const subscriptionDate = document.getElementById('subscriptionDate');
-            const subscriptionEndingDate = document.getElementById('subscriptionEndingDate');
-            const customerCountEl = document.getElementById('customerCount');
-            const totalIncomeEl = document.getElementById('totalIncome');
-            const totalExpensesEl = document.getElementById('totalExpenses');
-            const netProfitEl = document.getElementById('netProfit');
-            const summaryMonthEl = document.getElementById('summaryMonth');
-            const summaryYearEl = document.getElementById('summaryYear');
+        // ===================================================================================
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        // ===================================================================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        // ===================================================================================
 
-            // --- UTILITY FUNCTIONS ---
-            function formatDate(date) {
-                const d = new Date(date);
-                d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-            const calculateEndDate = () => {
-                const startDate = new Date(subscriptionDate.value);
-                const type = subscriptionType.value;
-                if (!startDate.getTime()) return;
-                if (type === 'trial') {
-                    startDate.setDate(startDate.getDate() + 7);
-                } else {
-                    startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
-                }
-                subscriptionEndingDate.value = formatDate(startDate);
-            };
-            
-            const formatCurrency = (amount) => {
-                return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-            };
+        // --- DOM ELEMENT SELECTORS ---
+        const customerForm = document.getElementById('newCustomerForm');
+        const expenseForm = document.getElementById('expenseForm');
+        const customerNameInput = document.getElementById('customerName');
+        const loginInput = document.getElementById('login');
+        const passwordInput = document.getElementById('password');
+        const customerTableBody = document.getElementById('customerTableBody');
+        const subscriptionType = document.getElementById('subscriptionType');
+        const subscriptionDate = document.getElementById('subscriptionDate');
+        const subscriptionEndingDate = document.getElementById('subscriptionEndingDate');
+        const customerCountEl = document.getElementById('customerCount');
+        const totalIncomeEl = document.getElementById('totalIncome');
+        const totalExpensesEl = document.getElementById('totalExpenses');
+        const netProfitEl = document.getElementById('netProfit');
+        const summaryMonthEl = document.getElementById('summaryMonth');
+        const summaryYearEl = document.getElementById('summaryYear');
+        const searchInput = document.getElementById('searchInput');
+        
+        let localCustomers = [];
+        let localExpenses = [];
+        let userId = null;
 
-            const generateCredentials = (fullName) => {
-                if (!fullName) {
-                    return { login: '', password: '' };
-                }
-                const names = fullName.trim().split(' ').filter(n => n);
-                const firstName = (names[0] || '').toUpperCase();
-                const lastName = (names.length > 1 ? names[names.length - 1] : '').toUpperCase();
-                const login = 'M26' + firstName.substring(0, 3);
-                let password;
-                if (lastName) {
-                    password = 'M26' + firstName.substring(0, 2) + lastName.substring(0, 2);
-                } else {
-                    password = 'M26' + firstName.substring(0, 2) + firstName.slice(-2);
-                }
-                return { login, password };
-            };
-
-            // --- RENDER/UPDATE FUNCTIONS ---
-            const updateSummary = () => {
-                const selectedMonth = summaryMonthEl.value;
-                const selectedYear = summaryYearEl.value;
-
-                // Calculate all-time totals first
-                const totalIncomeVal = state.customers
-                    .filter(c => c.status === 'Paid')
-                    .reduce((sum, c) => sum + (c.amount || 0), 0);
-
-                const totalExpensesVal = state.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-                const netProfitVal = totalIncomeVal - totalExpensesVal;
-
-                // Then, get the count for the filtered period
-                let customersForPeriod = state.customers;
-                if (selectedMonth !== 'all') {
-                    customersForPeriod = state.customers.filter(c => {
-                        const subDate = new Date(c.subDate);
-                        return subDate.getFullYear() == selectedYear && subDate.getMonth() == selectedMonth;
-                    });
-                }
-                
-                // Update the UI
-                customerCountEl.textContent = customersForPeriod.length; // Filtered count
-                totalIncomeEl.textContent = formatCurrency(totalIncomeVal); // All-time total
-                totalExpensesEl.textContent = `-${formatCurrency(totalExpensesVal)}`; // All-time total
-                netProfitEl.textContent = formatCurrency(netProfitVal); // All-time total
-                netProfitEl.classList.toggle('net-profit', netProfitVal >= 0);
-                netProfitEl.classList.toggle('total-expenses', netProfitVal < 0);
-            };
-
-            const renderTable = () => {
-                customerTableBody.innerHTML = '';
-                if (state.customers.length === 0) {
-                    customerTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">No customers yet.</td></tr>`;
-                    return;
-                }
-                
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
-                state.customers.forEach((customer, index) => {
-                    const row = document.createElement('tr');
-                    const endDate = new Date(customer.endDate);
-                    endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset());
-                    const timeDiff = endDate.getTime() - today.getTime();
-                    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-                    if (dayDiff < 0) {
-                        row.classList.add('row-expired');
-                    } else if (dayDiff <= 7) {
-                        row.classList.add('row-expiring');
-                    }
-                    
-                    row.innerHTML = `
-                        <td><input type="text" value="${customer.name || ''}" data-index="${index}" data-prop="name"></td>
-                        <td>
-                            <select data-index="${index}" data-prop="app">
-                                <optgroup label="App">
-                                    <option ${customer.app === 'SmartSTB' ? 'selected' : ''}>SmartSTB</option>
-                                    <option ${customer.app === 'Stb Emu' ? 'selected' : ''}>Stb Emu</option>
-                                </optgroup>
-                                <optgroup label="Box">
-                                    <option ${customer.app === 'TVIP' ? 'selected' : ''}>TVIP</option>
-                                    <option ${customer.app === 'MAG' ? 'selected' : ''}>MAG</option>
-                                    <option ${customer.app === 'Other' ? 'selected' : ''}>Other</option>
-                                </optgroup>
-                            </select>
-                        </td>
-                        <td><input type="text" value="${customer.login || ''}" data-index="${index}" data-prop="login"></td>
-                        <td><input type="date" value="${customer.endDate || ''}" data-index="${index}" data-prop="endDate"></td>
-                        <td>
-                            <select data-index="${index}" data-prop="status">
-                                <option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
-                                <option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
-                            </select>
-                        </td>
-                        <td><input type="text" value="${customer.note || ''}" data-index="${index}" data-prop="note"></td>
-                        <td><button class="btn-delete" data-index="${index}">Delete</button></td>
-                    `;
-                    customerTableBody.appendChild(row);
+        // --- AUTHENTICATION ---
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // User is signed in.
+                userId = user.uid;
+                loadData(userId);
+            } else {
+                // User is signed out. Sign in anonymously.
+                signInAnonymously(auth).catch(error => {
+                    console.error("Anonymous sign-in failed:", error);
                 });
-            };
+            }
+        });
 
-            // --- EVENT HANDLERS ---
-            const handleTableEdit = (e) => {
-                const target = e.target;
-                if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
-                    const index = target.dataset.index;
-                    const prop = target.dataset.prop;
-                    const value = target.value;
-
-                    state.customers[index][prop] = value;
-                    
-                    if (prop === 'endDate' || prop === 'status') {
-                        renderTable();
-                    }
-                    updateSummary();
-                }
-            };
-
-            const handleTableClick = (e) => {
-                if (e.target.classList.contains('btn-delete')) {
-                    const index = e.target.dataset.index;
-                    if (confirm(`Are you sure you want to delete ${state.customers[index].name}?`)) {
-                        state.customers.splice(index, 1);
-                        renderTable();
-                        updateSummary();
-                    }
-                }
-            };
-
-            const handleNameInput = (e) => {
-                const { login, password } = generateCredentials(e.target.value);
-                loginInput.value = login;
-                passwordInput.value = password;
-            };
-
-            const handleAddCustomer = (e) => {
-                e.preventDefault();
-                const formData = new FormData(customerForm);
-                const newCustomer = {
-                    name: formData.get('customerName'),
-                    app: formData.get('appOrBox'),
-                    login: loginInput.value, // Get value directly from the input
-                    password: passwordInput.value, // Get value directly from the input
-                    subDate: formData.get('subscriptionDate'),
-                    endDate: subscriptionEndingDate.value,
-                    status: formData.get('paymentStatus'),
-                    note: formData.get('specialNote'),
-                    amount: parseFloat(formData.get('paymentAmount')) || 0
-                };
-                state.customers.push(newCustomer);
+        // --- DATA LOADING ---
+        function loadData(uid) {
+            const customerCol = collection(db, `users/${uid}/customers`);
+            onSnapshot(customerCol, (snapshot) => {
+                localCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderTable();
                 updateSummary();
-                customerForm.reset();
-                initializeFormDefaults();
-            };
+            });
 
-            const handleAddExpense = (e) => {
-                e.preventDefault();
-                const amountInput = document.getElementById('expenseAmount');
-                const amount = parseFloat(amountInput.value);
-                if (isNaN(amount) || amount <= 0) {
-                    amountInput.style.borderColor = 'var(--danger-color-fg)';
-                    return;
-                }
-                amountInput.style.borderColor = 'var(--border-color)';
-                state.expenses.push({
-                    date: formatDate(new Date()),
-                    amount: amount,
-                    description: document.getElementById('expenseType').value
-                });
+            const expenseCol = collection(db, `users/${uid}/expenses`);
+            onSnapshot(expenseCol, (snapshot) => {
+                localExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateSummary();
-                expenseForm.reset();
-            };
+            });
+        }
 
-            // --- INITIALIZATION ---
-            const initializeFormDefaults = () => {
-                subscriptionDate.value = formatDate(new Date());
-                calculateEndDate();
-                loginInput.value = '';
-                passwordInput.value = '';
-            };
+        // --- UTILITY FUNCTIONS ---
+        function formatDate(date) {
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
-            const populateDateFilters = () => {
-                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                const currentYear = new Date().getFullYear();
-                const currentMonth = new Date().getMonth();
+        const calculateEndDate = () => {
+            const startDate = new Date(subscriptionDate.value);
+            const type = subscriptionType.value;
+            if (!startDate.getTime()) return;
+            if (type === 'trial') {
+                startDate.setDate(startDate.getDate() + 7);
+            } else {
+                startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
+            }
+            subscriptionEndingDate.value = formatDate(startDate);
+        };
+        
+        const formatCurrency = (amount) => {
+            return (amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        };
 
-                summaryMonthEl.innerHTML = `<option value="all">All Time</option>`;
-                months.forEach((month, index) => {
-                    summaryMonthEl.innerHTML += `<option value="${index}">${month}</option>`;
+        const generateCredentials = (fullName) => {
+            if (!fullName) {
+                return { login: '', password: '' };
+            }
+            const names = fullName.trim().split(' ').filter(n => n);
+            const firstName = (names[0] || '').toUpperCase();
+            const lastName = (names.length > 1 ? names[names.length - 1] : '').toUpperCase();
+            const login = 'M26' + firstName.substring(0, 3);
+            let password;
+            if (lastName) {
+                password = 'M26' + firstName.substring(0, 2) + lastName.substring(0, 2);
+            } else {
+                password = 'M26' + firstName.substring(0, 2) + firstName.slice(-2);
+            }
+            return { login, password };
+        };
+
+        // --- RENDER/UPDATE FUNCTIONS ---
+        const updateSummary = () => {
+            const selectedMonth = summaryMonthEl.value;
+            const selectedYear = summaryYearEl.value;
+
+            const totalIncomeVal = localCustomers
+                .filter(c => c.status === 'Paid')
+                .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+            const totalExpensesVal = localExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+            const netProfitVal = totalIncomeVal - totalExpensesVal;
+
+            let customersForPeriod = localCustomers;
+            if (selectedMonth !== 'all') {
+                customersForPeriod = localCustomers.filter(c => {
+                    const subDate = new Date(c.subDate);
+                    return subDate.getFullYear() == selectedYear && subDate.getMonth() == selectedMonth;
                 });
+            }
+            
+            customerCountEl.textContent = customersForPeriod.length;
+            totalIncomeEl.textContent = formatCurrency(totalIncomeVal);
+            totalExpensesEl.textContent = `-${formatCurrency(totalExpensesVal)}`;
+            netProfitEl.textContent = formatCurrency(netProfitVal);
+            netProfitEl.classList.toggle('net-profit', netProfitVal >= 0);
+            netProfitEl.classList.toggle('total-expenses', netProfitVal < 0);
+        };
 
-                summaryYearEl.innerHTML = '';
-                for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-                    summaryYearEl.innerHTML += `<option value="${i}">${i}</option>`;
+        const renderTable = () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            let customersToRender = localCustomers;
+
+            if (searchTerm) {
+                customersToRender = localCustomers.filter(customer => {
+                    const name = (customer.name || '').toLowerCase();
+                    const app = (customer.app || '').toLowerCase();
+                    const login = (customer.login || '').toLowerCase();
+                    return name.includes(searchTerm) || app.includes(searchTerm) || login.includes(searchTerm);
+                });
+            }
+
+            customerTableBody.innerHTML = '';
+            if (customersToRender.length === 0) {
+                customerTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">No customers found.</td></tr>`;
+                return;
+            }
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            customersToRender.forEach((customer) => {
+                const row = document.createElement('tr');
+                row.dataset.id = customer.id;
+                const endDate = new Date(customer.endDate);
+                endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset());
+                const timeDiff = endDate.getTime() - today.getTime();
+                const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+                if (dayDiff < 0) {
+                    row.classList.add('row-expired');
+                } else if (dayDiff <= 7) {
+                    row.classList.add('row-expiring');
                 }
+                
+                row.innerHTML = `
+                    <td><input type="text" value="${customer.name || ''}" data-prop="name"></td>
+                    <td>
+                        <select data-prop="app">
+                            <optgroup label="App">
+                                <option ${customer.app === 'SmartSTB' ? 'selected' : ''}>SmartSTB</option>
+                                <option ${customer.app === 'Stb Emu' ? 'selected' : ''}>Stb Emu</option>
+                            </optgroup>
+                            <optgroup label="Box">
+                                <option ${customer.app === 'TVIP' ? 'selected' : ''}>TVIP</option>
+                                <option ${customer.app === 'MAG' ? 'selected' : ''}>MAG</option>
+                                <option ${customer.app === 'Other' ? 'selected' : ''}>Other</option>
+                            </optgroup>
+                        </select>
+                    </td>
+                    <td><input type="text" value="${customer.login || ''}" data-prop="login"></td>
+                    <td><input type="date" value="${customer.endDate || ''}" data-prop="endDate"></td>
+                    <td>
+                        <select data-prop="status">
+                            <option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                            <option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+                        </select>
+                    </td>
+                    <td><input type="text" value="${customer.note || ''}" data-prop="note"></td>
+                    <td><button class="btn-delete">Delete</button></td>
+                `;
+                customerTableBody.appendChild(row);
+            });
+        };
 
-                summaryMonthEl.value = currentMonth;
-                summaryYearEl.value = currentYear;
+        // --- EVENT HANDLERS ---
+        async function handleTableEdit(e) {
+            const target = e.target;
+            if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+                const row = target.closest('tr');
+                const docId = row.dataset.id;
+                const prop = target.dataset.prop;
+                const value = target.value;
+
+                const docRef = doc(db, `users/${userId}/customers`, docId);
+                try {
+                    await updateDoc(docRef, { [prop]: value });
+                } catch (error) {
+                    console.error("Error updating document: ", error);
+                }
+            }
+        };
+
+        async function handleTableClick(e) {
+            if (e.target.classList.contains('btn-delete')) {
+                const row = e.target.closest('tr');
+                const docId = row.dataset.id;
+                const customerName = row.querySelector('input[data-prop="name"]').value;
+
+                if (confirm(`Are you sure you want to delete ${customerName}?`)) {
+                    const docRef = doc(db, `users/${userId}/customers`, docId);
+                    try {
+                        await deleteDoc(docRef);
+                    } catch (error) {
+                        console.error("Error deleting document: ", error);
+                    }
+                }
+            }
+        };
+
+        const handleNameInput = (e) => {
+            const { login, password } = generateCredentials(e.target.value);
+            loginInput.value = login;
+            passwordInput.value = password;
+        };
+
+        async function handleAddCustomer(e) {
+            e.preventDefault();
+            if (!userId) {
+                console.error("User not authenticated yet.");
+                return;
+            }
+            const formData = new FormData(customerForm);
+            const newCustomer = {
+                name: formData.get('customerName'),
+                app: formData.get('appOrBox'),
+                login: loginInput.value,
+                password: passwordInput.value,
+                subDate: formData.get('subscriptionDate'),
+                endDate: subscriptionEndingDate.value,
+                status: formData.get('paymentStatus'),
+                note: formData.get('specialNote'),
+                amount: parseFloat(formData.get('paymentAmount')) || 0
             };
             
-            customerForm.addEventListener('submit', handleAddCustomer);
-            expenseForm.addEventListener('submit', handleAddExpense);
-            customerNameInput.addEventListener('input', handleNameInput);
-            subscriptionDate.addEventListener('change', calculateEndDate);
-            subscriptionType.addEventListener('change', calculateEndDate);
-            summaryMonthEl.addEventListener('change', updateSummary);
-            summaryYearEl.addEventListener('change', updateSummary);
-            customerTableBody.addEventListener('change', handleTableEdit);
-            customerTableBody.addEventListener('click', handleTableClick);
+            try {
+                const customerCol = collection(db, `users/${userId}/customers`);
+                await addDoc(customerCol, newCustomer);
+                customerForm.reset();
+                initializeFormDefaults();
+            } catch (error) {
+                console.error("Error adding customer: ", error);
+            }
+        };
 
-            populateDateFilters();
-            initializeFormDefaults();
-            renderTable();
-            updateSummary();
-        });
+        async function handleAddExpense(e) {
+            e.preventDefault();
+            if (!userId) {
+                console.error("User not authenticated yet.");
+                return;
+            }
+            const amountInput = document.getElementById('expenseAmount');
+            const amount = parseFloat(amountInput.value);
+            if (isNaN(amount) || amount <= 0) {
+                amountInput.style.borderColor = 'var(--danger-color-fg)';
+                return;
+            }
+            amountInput.style.borderColor = 'var(--border-color)';
+            
+            const newExpense = {
+                date: formatDate(new Date()),
+                amount: amount,
+                description: document.getElementById('expenseType').value
+            };
+
+            try {
+                const expenseCol = collection(db, `users/${userId}/expenses`);
+                await addDoc(expenseCol, newExpense);
+                expenseForm.reset();
+            } catch (error) {
+                console.error("Error adding expense: ", error);
+            }
+        };
+
+        // --- INITIALIZATION ---
+        const initializeFormDefaults = () => {
+            subscriptionDate.value = formatDate(new Date());
+            calculateEndDate();
+            loginInput.value = '';
+            passwordInput.value = '';
+        };
+
+        const populateDateFilters = () => {
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+
+            summaryMonthEl.innerHTML = `<option value="all">All Time</option>`;
+            months.forEach((month, index) => {
+                summaryMonthEl.innerHTML += `<option value="${index}">${month}</option>`;
+            });
+
+            summaryYearEl.innerHTML = '';
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                summaryYearEl.innerHTML += `<option value="${i}">${i}</option>`;
+            }
+
+            summaryMonthEl.value = currentMonth;
+            summaryYearEl.value = currentYear;
+        };
+        
+        customerForm.addEventListener('submit', handleAddCustomer);
+        expenseForm.addEventListener('submit', handleAddExpense);
+        customerNameInput.addEventListener('input', handleNameInput);
+        subscriptionDate.addEventListener('change', calculateEndDate);
+        subscriptionType.addEventListener('change', calculateEndDate);
+        summaryMonthEl.addEventListener('change', updateSummary);
+        summaryYearEl.addEventListener('change', updateSummary);
+        customerTableBody.addEventListener('change', handleTableEdit);
+        customerTableBody.addEventListener('click', handleTableClick);
+        searchInput.addEventListener('input', renderTable);
+
+        populateDateFilters();
+        initializeFormDefaults();
     </script>
 </body>
 </html>
