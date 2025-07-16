@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -116,6 +117,10 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
         }
+        input.error {
+            border-color: var(--danger-color);
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
+        }
         input[readonly] { background-color: #e9ecef; }
 
         .btn {
@@ -173,8 +178,8 @@
         tbody tr:last-child > td { border-bottom: none; }
         
         thead th {
-            font-size: 0.75em;
-            font-weight: 600;
+            font-size: 0.8em;
+            font-weight: 700; /* Bolder header */
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -212,6 +217,8 @@
             <div class="card">
                 <h3>Summary Report</h3>
                 <div class="summary-filter"><select id="summaryMonth"></select><select id="summaryYear"></select></div>
+                <div class="summary-item"><span>Active Users</span><span id="activeUsers">0</span></div>
+                <div class="summary-item"><span>Expired Users</span><span id="expiredUsers">0</span></div>
                 <div class="summary-item"><span>Customers This Month</span><span id="customerCount">0</span></div>
                 <div class="summary-item"><span>Income This Month</span><span id="totalIncome">$0.00</span></div>
                 <div class="summary-item"><span>Expenses This Month</span><span id="totalExpenses">-$0.00</span></div>
@@ -247,10 +254,28 @@
                 <form id="newCustomerForm">
                     <div class="form-grid">
                         <div class="form-group"><label for="customerName">Customer Name</label><input type="text" id="customerName" name="customerName" required></div>
+                        <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" name="phone"></div>
                         <div class="form-group"><label for="login">Login</label><input type="text" id="login" name="login" readonly></div>
                         <div class="form-group"><label for="password">Password</label><input type="text" id="password" name="password" readonly></div>
                         <div class="form-group"><label for="macAddress">MAC Address (Optional)</label><input type="text" id="macAddress" name="macAddress"></div>
-                        <div class="form-group"><label for="subscriptionType">Subscription</label><select id="subscriptionType" name="subscriptionType" required><option value="6">6 Months</option><option value="1">1 Month</option><option value="3">3 Months</option><option value="12">12 Months</option><option value="trial">Trial (7 days)</option></select></div>
+                        <div class="form-group">
+                            <label for="subscriptionType">Subscription</label>
+                            <select id="subscriptionType" name="subscriptionType" required>
+                                <option value="1">1 Month</option>
+                                <option value="2">2 Months</option>
+                                <option value="3">3 Months</option>
+                                <option value="4">4 Months</option>
+                                <option value="5">5 Months</option>
+                                <option value="6" selected>6 Months</option>
+                                <option value="7">7 Months</option>
+                                <option value="8">8 Months</option>
+                                <option value="9">9 Months</option>
+                                <option value="10">10 Months</option>
+                                <option value="11">11 Months</option>
+                                <option value="12">12 Months</option>
+                                <option value="trial">Trial (7 days)</option>
+                            </select>
+                        </div>
                         <div class="form-group"><label for="subscriptionDate">Subscription Date</label><input type="date" id="subscriptionDate" name="subscriptionDate" required></div>
                         <div class="form-group"><label for="subscriptionEndingDate">Subscription Ending Date</label><input type="text" id="subscriptionEndingDate" name="subscriptionEndingDate" readonly></div>
                         <div class="form-group"><label for="paymentStatus">Payment Status</label><select id="paymentStatus" name="paymentStatus" required><option>Paid</option><option>Unpaid</option></select></div>
@@ -268,6 +293,7 @@
                         <thead>
                             <tr>
                                 <th class="sortable" data-sort="name">Customer Name</th>
+                                <th class="sortable" data-sort="phone">Phone</th>
                                 <th class="sortable" data-sort="login">Login</th>
                                 <th class="sortable" data-sort="subDate">Created On</th>
                                 <th class="sortable" data-sort="endDate">Ends On</th>
@@ -288,7 +314,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
-        // --- DOM ELEMENT SELECTORS ---
         const customerForm = document.getElementById('newCustomerForm');
         const expenseForm = document.getElementById('expenseForm');
         const customerNameInput = document.getElementById('customerName');
@@ -302,6 +327,8 @@
         const expenseDateInput = document.getElementById('expenseDate');
         const paymentAmountInput = document.getElementById('paymentAmount');
         const customerCountEl = document.getElementById('customerCount');
+        const activeUsersEl = document.getElementById('activeUsers');
+        const expiredUsersEl = document.getElementById('expiredUsers');
         const totalIncomeEl = document.getElementById('totalIncome');
         const totalExpensesEl = document.getElementById('totalExpenses');
         const netProfitEl = document.getElementById('netProfit');
@@ -310,7 +337,6 @@
         const searchInput = document.getElementById('searchInput');
         const undoBtn = document.getElementById('undo-btn');
         
-        // --- GLOBAL VARIABLES ---
         let localCustomers = [];
         let localExpenses = [];
         let userId = null;
@@ -318,7 +344,6 @@
         let sortConfig = { key: 'subDate', direction: 'desc' };
         let lastAction = null;
 
-        // --- UTILITY FUNCTIONS ---
         const formatDate = (dateString) => {
             if (!dateString) return '';
             const date = new Date(dateString);
@@ -394,7 +419,6 @@
             summaryYearEl.value = currentYear;
         };
 
-        // --- MAIN APP LOGIC ---
         async function main() {
             const firebaseConfig = {
                 apiKey: "AIzaSyD2rTmmE1S7r3HWEBfPyCy4z3bm0laf_zY",
@@ -429,7 +453,7 @@
                 updateSummary();
             });
         }
-
+        
         const updateUndoButton = () => {
             if (lastAction) {
                 undoBtn.disabled = false;
@@ -438,6 +462,15 @@
                 undoBtn.disabled = true;
                 undoBtn.textContent = 'Undo Last Action';
             }
+        };
+        
+        const generateMonthOptions = (selectedType) => {
+            let options = '';
+            for (let i = 1; i <= 12; i++) {
+                options += `<option value="${i}" ${selectedType == i ? 'selected' : ''}>${i} Month${i > 1 ? 's' : ''}</option>`;
+            }
+            options += `<option value="trial" ${selectedType == 'trial' ? 'selected' : ''}>Trial</option>`;
+            return options;
         };
 
         const renderRow_ViewMode = (customer) => {
@@ -449,6 +482,7 @@
                 : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
             return `
                 <td><span class="view-span">${customer.name || ''}</span></td>
+                <td><span class="view-span">${customer.phone || ''}</span></td>
                 <td><span class="view-span">${customer.login || ''}</span></td>
                 <td><span class="view-span">${formatDisplayDate(customer.subDate)}</span></td>
                 <td><span class="view-span">${formatDisplayDate(customer.endDate)}</span></td>
@@ -458,15 +492,13 @@
                 <td><div class="actions-cell"><button class="btn btn-edit">Edit</button><button class="btn btn-delete">Delete</button></div></td>`;
         };
         const renderRow_EditMode = (customer) => {
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const endDate = new Date(customer.endDate);
-            const dayDiff = Math.ceil((endDate - today) / (1000 * 3600 * 24));
             return `
                 <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
+                <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
                 <td><input type="text" data-prop="login" value="${customer.login || ''}"></td>
                 <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
                 <td><input type="text" data-prop="endDate" value="${formatDisplayDate(customer.endDate)}" readonly></td>
-                <td><select data-prop="subscriptionType"><option value="6" ${customer.subscriptionType == '6' ? 'selected':''}>6 Months</option><option value="1" ${customer.subscriptionType == '1' ? 'selected':''}>1 Month</option><option value="3" ${customer.subscriptionType == '3' ? 'selected':''}>3 Months</option><option value="12" ${customer.subscriptionType == '12' ? 'selected':''}>12 Months</option><option value="trial" ${customer.subscriptionType == 'trial' ? 'selected':''}>Trial</option></select></td>
+                <td><select data-prop="subscriptionType">${generateMonthOptions(customer.subscriptionType)}</select></td>
                 <td><select data-prop="status"><option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option><option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option></select></td>
                 <td><input type="text" data-prop="note" value="${customer.note || ''}"></td>
                 <td><div class="actions-cell"><button class="btn btn-save">Save</button><button class="btn btn-delete">Delete</button></div></td>`;
@@ -478,7 +510,7 @@
             if (searchTerm) { customersToRender = customersToRender.filter(c => (c.name || '').toLowerCase().includes(searchTerm) || (c.login || '').toLowerCase().includes(searchTerm)); }
             customersToRender.sort((a, b) => { const key = sortConfig.key; const direction = sortConfig.direction === 'asc' ? 1 : -1; let valA, valB; if (key === 'daysLeft') { const today = new Date(); today.setHours(0,0,0,0); valA = Math.ceil((new Date(a.endDate) - today) / (1000 * 3600 * 24)); valB = Math.ceil((new Date(b.endDate) - today) / (1000 * 3600 * 24)); } else if (key === 'subDate' || key === 'endDate') { valA = new Date(a[key]); valB = new Date(b[key]); } else { valA = (a[key] || '').toLowerCase(); valB = (b[key] || '').toLowerCase(); } if (valA < valB) return -1 * direction; if (valA > valB) return 1 * direction; return 0; });
             customerTableBody.innerHTML = ''; 
-            if (customersToRender.length === 0) { customerTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No customers found.</td></tr>`; return; } 
+            if (customersToRender.length === 0) { customerTableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 40px;">No customers found.</td></tr>`; return; } 
             customersToRender.forEach((customer) => { 
                 const row = document.createElement('tr'); 
                 row.dataset.id = customer.id;
@@ -505,7 +537,24 @@
             } 
             const incomeThisMonth = customersForPeriod.filter(c => c.status === 'Paid').reduce((sum, c) => sum + (c.amount || 0), 0); 
             const expensesThisMonth = expensesForPeriod.reduce((sum, e) => sum + (e.amount || 0), 0); 
-            const netProfitThisMonth = incomeThisMonth - expensesThisMonth; 
+            const netProfitThisMonth = incomeThisMonth - expensesThisMonth;
+            
+            let activeCount = 0;
+            let expiredCount = 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            localCustomers.forEach(customer => {
+                const endDate = new Date(customer.endDate);
+                if (endDate < today) {
+                    expiredCount++;
+                } else {
+                    activeCount++;
+                }
+            });
+
+            activeUsersEl.textContent = activeCount;
+            expiredUsersEl.textContent = expiredCount;
             customerCountEl.textContent = customersForPeriod.length; 
             totalIncomeEl.textContent = formatCurrency(incomeThisMonth); 
             totalExpensesEl.textContent = `-${formatCurrency(expensesThisMonth)}`; 
@@ -554,8 +603,11 @@
 
                 if (e.target.classList.contains('btn-save')) {
                     const updatedData = {
-                        name: row.querySelector('[data-prop="name"]').value, login: row.querySelector('[data-prop="login"]').value,
-                        status: row.querySelector('[data-prop="status"]').value, note: row.querySelector('[data-prop="note"]').value,
+                        name: row.querySelector('[data-prop="name"]').value,
+                        phone: row.querySelector('[data-prop="phone"]').value,
+                        login: row.querySelector('[data-prop="login"]').value,
+                        status: row.querySelector('[data-prop="status"]').value, 
+                        note: row.querySelector('[data-prop="note"]').value,
                         subDate: formatDate(row.querySelector('[data-prop="subDate"]').value),
                         subscriptionType: row.querySelector('[data-prop="subscriptionType"]').value,
                         endDate: formatDate(row.querySelector('[data-prop="endDate"]').value)
@@ -587,7 +639,55 @@
             
             expenseForm.addEventListener('submit', (e) => { e.preventDefault(); if (!userId) { return alert("Cannot add expense: User not signed in."); } const amount = parseFloat(document.getElementById('expenseAmount').value); if (isNaN(amount) || amount <= 0) { return alert("Please enter a valid expense amount."); } const newExpense = { date: expenseDateInput.value, amount: amount, description: document.getElementById('expenseType').value }; addDoc(collection(db, `users/${userId}/expenses`), newExpense).then(() => { expenseForm.reset(); initializeFormDefaults(); }).catch(error => console.error("Error adding expense:", error)); });
             
-            customerForm.addEventListener('submit', (e) => { e.preventDefault(); const submitButton = customerForm.querySelector('button[type="submit"]'); if (!userId) { alert("Error: User ID is not set."); return; } const customerName = customerNameInput.value.trim(); if (!customerName) { alert("Please enter a customer name."); customerNameInput.focus(); return; } try { const formData = new FormData(customerForm); const newCustomer = { name: customerName, login: loginInput.value, password: passwordInput.value, subDate: formData.get('subscriptionDate'), endDate: subscriptionEndingDate.value, status: formData.get('paymentStatus'), note: formData.get('specialNote'), amount: parseFloat(paymentAmountInput.value) || 0, subscriptionType: formData.get('subscriptionType') }; submitButton.disabled = true; submitButton.textContent = 'Adding...'; addDoc(collection(db, `users/${userId}/customers`), newCustomer).then(() => { alert('Customer added successfully!'); customerForm.reset(); initializeFormDefaults(); }).catch(error => { console.error("Error adding customer:", error); alert(`Error: ${error.message}`); }).finally(() => { submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; }); } catch (error) { console.error("Error creating customer:", error); alert(`Error: ${error.message}`); submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; } });
+            customerForm.addEventListener('submit', (e) => { 
+                e.preventDefault(); 
+                const submitButton = customerForm.querySelector('button[type="submit"]'); 
+                if (!userId) { alert("Error: User ID is not set."); return; } 
+                const customerName = customerNameInput.value.trim();
+                
+                const isDuplicate = localCustomers.some(c => c.name.toLowerCase() === customerName.toLowerCase());
+                if (isDuplicate) {
+                    alert("A customer with this name already exists.");
+                    customerNameInput.classList.add('error');
+                    setTimeout(() => customerNameInput.classList.remove('error'), 3000);
+                    return;
+                }
+
+                if (!customerName) { alert("Please enter a customer name."); customerNameInput.focus(); return; } 
+                try { 
+                    const formData = new FormData(customerForm); 
+                    const newCustomer = { 
+                        name: customerName,
+                        phone: formData.get('phone'),
+                        login: loginInput.value, 
+                        password: passwordInput.value, 
+                        subDate: formData.get('subscriptionDate'), 
+                        endDate: subscriptionEndingDate.value, 
+                        status: formData.get('paymentStatus'), 
+                        note: formData.get('specialNote'), 
+                        amount: parseFloat(paymentAmountInput.value) || 0, 
+                        subscriptionType: formData.get('subscriptionType') 
+                    }; 
+                    submitButton.disabled = true; 
+                    submitButton.textContent = 'Adding...'; 
+                    addDoc(collection(db, `users/${userId}/customers`), newCustomer).then(() => { 
+                        alert('Customer added successfully!'); 
+                        customerForm.reset(); 
+                        initializeFormDefaults(); 
+                    }).catch(error => { 
+                        console.error("Error adding customer:", error); 
+                        alert(`Error: ${error.message}`); 
+                    }).finally(() => { 
+                        submitButton.disabled = false; 
+                        submitButton.textContent = 'Add New Customer'; 
+                    }); 
+                } catch (error) { 
+                    console.error("Error creating customer:", error); 
+                    alert(`Error: ${error.message}`); 
+                    submitButton.disabled = false; 
+                    submitButton.textContent = 'Add New Customer'; 
+                } 
+            });
             
             subscriptionType.addEventListener('change', updatePaymentAmount);
             customerNameInput.addEventListener('input', (e) => { const { login, password } = generateCredentials(e.target.value); loginInput.value = login; passwordInput.value = password; }); 
