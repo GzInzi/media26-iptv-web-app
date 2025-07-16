@@ -28,12 +28,14 @@
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .container {
             display: flex;
             width: 100%;
-            min-height: 100vh;
         }
 
         aside {
@@ -45,11 +47,20 @@
             display: flex;
             flex-direction: column;
             gap: 30px;
+            overflow-y: auto;
         }
         
         main {
             flex-grow: 1;
             padding: 30px 40px;
+            overflow-y: auto;
+        }
+        
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
         }
 
         h1, h2, h3 {
@@ -58,7 +69,7 @@
             font-weight: 600;
         }
         
-        h1 { font-size: 1.8em; margin-bottom: 30px; }
+        h1 { font-size: 1.8em; margin-bottom: 0; }
         h2 { font-size: 1.5em; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 25px; }
         h3 { font-size: 1.25em; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
 
@@ -119,6 +130,18 @@
         .btn-primary { background-color: var(--accent-color); color: #fff; width: 100%; grid-column: 1 / -1; margin-top: 10px; padding: 12px 20px; }
         .btn-primary:hover:not(:disabled) { background-color: var(--accent-hover); }
 
+        #undo-btn {
+            background-color: #6c757d;
+            color: #fff;
+        }
+        #undo-btn:disabled {
+            background-color: #ced4da;
+            cursor: not-allowed;
+        }
+        #undo-btn:hover:not(:disabled) {
+            background-color: #5c636a;
+        }
+        
         .actions-cell { display: flex; gap: 8px; }
         .btn-edit { background-color: #cfe2ff; color: #0a58ca; }
         .btn-edit:hover { background-color: #b9d3fa; }
@@ -165,8 +188,6 @@
         th.sort-desc::after { content: ' \\25BC'; color: var(--accent-color); }
         
         tbody tr:hover { background-color: #f8f9fa; }
-        tbody .view-mode input, tbody .view-mode select { display: none; }
-        tbody .edit-mode .view-span { display: none; }
         
         .row-expiring { background-color: var(--warning-bg) !important; }
         .row-expired { 
@@ -177,22 +198,10 @@
         .btn-delete { background-color: #f8d7da; color: var(--danger-color); }
         .btn-delete:hover { background-color: var(--danger-color); color: #fff; }
 
-        /* --- THIS IS THE NEW RESPONSIVE CODE --- */
         @media (max-width: 992px) {
-            .container {
-                flex-direction: column; /* Stack sidebar and main content vertically */
-            }
-            aside {
-                width: 100%; /* Make sidebar full width */
-                box-sizing: border-box;
-                border-right: none;
-                border-bottom: 1px solid var(--border-color);
-            }
-            main {
-                width: 100%;
-                box-sizing: border-box;
-                padding: 20px;
-            }
+            .container { flex-direction: column; }
+            aside { width: 100%; box-sizing: border-box; border-right: none; border-bottom: 1px solid var(--border-color); }
+            main { width: 100%; box-sizing: border-box; padding: 20px; }
         }
     </style>
 </head>
@@ -229,7 +238,10 @@
         </aside>
 
         <main>
-            <h1>IPTV Dashboard</h1>
+            <div class="main-header">
+                <h1>IPTV Dashboard</h1>
+                <button class="btn" id="undo-btn" disabled>Undo Last Action</button>
+            </div>
             <div class="card">
                 <h2>Create New Customer</h2>
                 <form id="newCustomerForm">
@@ -274,8 +286,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
+        // --- DOM ELEMENT SELECTORS ---
         const customerForm = document.getElementById('newCustomerForm');
         const expenseForm = document.getElementById('expenseForm');
         const customerNameInput = document.getElementById('customerName');
@@ -295,13 +308,93 @@
         const summaryMonthEl = document.getElementById('summaryMonth');
         const summaryYearEl = document.getElementById('summaryYear');
         const searchInput = document.getElementById('searchInput');
+        const undoBtn = document.getElementById('undo-btn');
         
+        // --- GLOBAL VARIABLES ---
         let localCustomers = [];
         let localExpenses = [];
         let userId = null;
         let db; 
         let sortConfig = { key: 'subDate', direction: 'desc' };
+        let lastAction = null;
 
+        // --- UTILITY FUNCTIONS ---
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const formatDisplayDate = (dateString) => {
+            if (!dateString) return '';
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const date = new Date(dateString);
+            date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        };
+        
+        const formatCurrency = (amount) => (amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+        const calculateEndDate = () => {
+            const startDate = new Date(subscriptionDate.value);
+            const type = subscriptionType.value;
+            if (!startDate.getTime() || !subscriptionDate.value) return;
+            if (type === 'trial') {
+                startDate.setDate(startDate.getDate() + 7);
+            } else {
+                startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
+            }
+            subscriptionEndingDate.value = formatDate(startDate);
+        };
+        
+        const updatePaymentAmount = () => {
+            const subscriptionValue = subscriptionType.value;
+            let amount = 0;
+            if (subscriptionValue === 'trial') { amount = 0; } 
+            else { const months = parseInt(subscriptionValue, 10); amount = months * 10; }
+            paymentAmountInput.value = amount.toFixed(2);
+        };
+
+        const generateCredentials = (fullName) => {
+            if (!fullName) { return { login: '', password: '' }; }
+            const names = fullName.trim().split(' ').filter(n => n);
+            const firstName = (names[0] || '').toUpperCase();
+            const lastName = (names.length > 1 ? names[names.length - 1] : '').toUpperCase();
+            const login = 'M26' + firstName.substring(0, 3);
+            let password = lastName ? 'M26' + firstName.substring(0, 2) + lastName.substring(0, 2) : 'M26' + firstName.substring(0, 2) + firstName.slice(-2);
+            return { login, password };
+        };
+        
+        const initializeFormDefaults = () => {
+            const today = new Date();
+            subscriptionDate.value = formatDate(today);
+            expenseDateInput.value = formatDate(today);
+            calculateEndDate();
+            updatePaymentAmount();
+            loginInput.value = '';
+            passwordInput.value = '';
+        };
+
+        const populateDateFilters = () => {
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+            summaryMonthEl.innerHTML = `<option value="all">All Time</option>`;
+            months.forEach((month, index) => { summaryMonthEl.innerHTML += `<option value="${index}">${month}</option>`; });
+            summaryYearEl.innerHTML = '';
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) { summaryYearEl.innerHTML += `<option value="${i}">${i}</option>`; }
+            summaryMonthEl.value = currentMonth;
+            summaryYearEl.value = currentYear;
+        };
+
+        // --- MAIN APP LOGIC ---
         async function main() {
             const firebaseConfig = {
                 apiKey: "AIzaSyD2rTmmE1S7r3HWEBfPyCy4z3bm0laf_zY",
@@ -317,6 +410,8 @@
             setupEventListeners(); 
             userId = "gL1KLYx6NqdokNaHoY3zhUvoRPo1";
             loadData(userId);
+            populateDateFilters();
+            initializeFormDefaults();
         }
 
         function loadData(uid) {
@@ -334,29 +429,24 @@
                 updateSummary();
             });
         }
-        
-        const updatePaymentAmount = () => {
-            const subscriptionValue = subscriptionType.value;
-            let amount = 0;
-            if (subscriptionValue === 'trial') {
-                amount = 0;
+
+        const updateUndoButton = () => {
+            if (lastAction) {
+                undoBtn.disabled = false;
+                undoBtn.textContent = `Undo ${lastAction.action}`;
             } else {
-                const months = parseInt(subscriptionValue, 10);
-                amount = months * 10;
+                undoBtn.disabled = true;
+                undoBtn.textContent = 'Undo Last Action';
             }
-            paymentAmountInput.value = amount.toFixed(2);
         };
 
         const renderRow_ViewMode = (customer) => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             const endDate = new Date(customer.endDate);
             const dayDiff = Math.ceil((endDate - today) / (1000 * 3600 * 24));
-
             const statusIcon = customer.status === 'Paid'
                 ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
-
             return `
                 <td><span class="view-span">${customer.name || ''}</span></td>
                 <td><span class="view-span">${customer.login || ''}</span></td>
@@ -365,101 +455,96 @@
                 <td><span class="view-span">${dayDiff < 0 ? 'Expired' : dayDiff}</span></td>
                 <td style="text-align: center;"><span class="view-span">${statusIcon}</span></td>
                 <td><span class="view-span">${customer.note || ''}</span></td>
-                <td><div class="actions-cell"><button class="btn btn-edit">Edit</button><button class="btn btn-delete">Delete</button></div></td>
-            `;
+                <td><div class="actions-cell"><button class="btn btn-edit">Edit</button><button class="btn btn-delete">Delete</button></div></td>`;
         };
-
         const renderRow_EditMode = (customer) => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             const endDate = new Date(customer.endDate);
             const dayDiff = Math.ceil((endDate - today) / (1000 * 3600 * 24));
-            
             return `
                 <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
                 <td><input type="text" data-prop="login" value="${customer.login || ''}"></td>
-                <td>${formatDisplayDate(customer.subDate)}</td>
-                <td>${formatDisplayDate(customer.endDate)}</td>
-                <td>${dayDiff < 0 ? 'Expired' : dayDiff}</td>
+                <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
+                <td><input type="text" data-prop="endDate" value="${formatDisplayDate(customer.endDate)}" readonly></td>
+                <td><select data-prop="subscriptionType"><option value="6" ${customer.subscriptionType == '6' ? 'selected':''}>6 Months</option><option value="1" ${customer.subscriptionType == '1' ? 'selected':''}>1 Month</option><option value="3" ${customer.subscriptionType == '3' ? 'selected':''}>3 Months</option><option value="12" ${customer.subscriptionType == '12' ? 'selected':''}>12 Months</option><option value="trial" ${customer.subscriptionType == 'trial' ? 'selected':''}>Trial</option></select></td>
                 <td><select data-prop="status"><option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option><option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option></select></td>
                 <td><input type="text" data-prop="note" value="${customer.note || ''}"></td>
-                <td><div class="actions-cell"><button class="btn btn-save">Save</button><button class="btn btn-delete">Delete</button></div></td>
-            `;
+                <td><div class="actions-cell"><button class="btn btn-save">Save</button><button class="btn btn-delete">Delete</button></div></td>`;
         };
         
         const renderTable = () => { 
             const searchTerm = searchInput.value.toLowerCase(); 
             let customersToRender = [...localCustomers]; 
-            if (searchTerm) { 
-                customersToRender = customersToRender.filter(c => (c.name || '').toLowerCase().includes(searchTerm) || (c.login || '').toLowerCase().includes(searchTerm)); 
-            }
-            
-            customersToRender.sort((a, b) => {
-                const key = sortConfig.key;
-                const direction = sortConfig.direction === 'asc' ? 1 : -1;
-                let valA, valB;
-                if (key === 'daysLeft') {
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    valA = Math.ceil((new Date(a.endDate) - today) / (1000 * 3600 * 24));
-                    valB = Math.ceil((new Date(b.endDate) - today) / (1000 * 3600 * 24));
-                } else if (key === 'subDate' || key === 'endDate') {
-                    valA = new Date(a[key]);
-                    valB = new Date(b[key]);
-                } else {
-                    valA = (a[key] || '').toLowerCase();
-                    valB = (b[key] || '').toLowerCase();
-                }
-                if (valA < valB) return -1 * direction;
-                if (valA > valB) return 1 * direction;
-                return 0;
-            });
-            
+            if (searchTerm) { customersToRender = customersToRender.filter(c => (c.name || '').toLowerCase().includes(searchTerm) || (c.login || '').toLowerCase().includes(searchTerm)); }
+            customersToRender.sort((a, b) => { const key = sortConfig.key; const direction = sortConfig.direction === 'asc' ? 1 : -1; let valA, valB; if (key === 'daysLeft') { const today = new Date(); today.setHours(0,0,0,0); valA = Math.ceil((new Date(a.endDate) - today) / (1000 * 3600 * 24)); valB = Math.ceil((new Date(b.endDate) - today) / (1000 * 3600 * 24)); } else if (key === 'subDate' || key === 'endDate') { valA = new Date(a[key]); valB = new Date(b[key]); } else { valA = (a[key] || '').toLowerCase(); valB = (b[key] || '').toLowerCase(); } if (valA < valB) return -1 * direction; if (valA > valB) return 1 * direction; return 0; });
             customerTableBody.innerHTML = ''; 
-            if (customersToRender.length === 0) { 
-                customerTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No customers found.</td></tr>`; 
-                return; 
-            } 
+            if (customersToRender.length === 0) { customerTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No customers found.</td></tr>`; return; } 
             customersToRender.forEach((customer) => { 
                 const row = document.createElement('tr'); 
                 row.dataset.id = customer.id;
                 const today = new Date(); today.setHours(0,0,0,0);
                 const dayDiff = Math.ceil((new Date(customer.endDate) - today) / (1000 * 3600 * 24));
-                
-                if (dayDiff < 0) {
-                    row.classList.add('row-expired');
-                } else if (dayDiff < 5) {
-                    row.classList.add('row-expiring');
-                }
-
+                if (dayDiff < 0) { row.classList.add('row-expired'); } else if (dayDiff < 5) { row.classList.add('row-expiring'); }
                 row.innerHTML = renderRow_ViewMode(customer);
                 customerTableBody.appendChild(row); 
             }); 
         };
         
+        const renderExpensesTable = () => { 
+            expenseTableBody.innerHTML = ''; if (localExpenses.length === 0) { expenseTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No expenses yet.</td></tr>`; return; } 
+            const sortedExpenses = [...localExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+            sortedExpenses.forEach((expense) => { const row = document.createElement('tr'); row.dataset.id = expense.id; row.innerHTML = `<td>${expense.description}</td><td>${formatCurrency(expense.amount)}</td><td>${formatDisplayDate(expense.date)}</td><td><button class="btn btn-delete">Delete</button></td>`; expenseTableBody.appendChild(row); }); 
+        };
+
+        const updateSummary = () => { 
+            const selectedMonth = summaryMonthEl.value; const selectedYear = summaryYearEl.value; 
+            let customersForPeriod = localCustomers; let expensesForPeriod = localExpenses; 
+            if (selectedMonth !== 'all') { 
+                customersForPeriod = localCustomers.filter(c => { const subDate = new Date(c.subDate); return subDate.getFullYear() == selectedYear && subDate.getMonth() == selectedMonth; }); 
+                expensesForPeriod = localExpenses.filter(e => { const expDate = new Date(e.date); return expDate.getFullYear() == selectedYear && expDate.getMonth() == selectedMonth; }); 
+            } 
+            const incomeThisMonth = customersForPeriod.filter(c => c.status === 'Paid').reduce((sum, c) => sum + (c.amount || 0), 0); 
+            const expensesThisMonth = expensesForPeriod.reduce((sum, e) => sum + (e.amount || 0), 0); 
+            const netProfitThisMonth = incomeThisMonth - expensesThisMonth; 
+            customerCountEl.textContent = customersForPeriod.length; 
+            totalIncomeEl.textContent = formatCurrency(incomeThisMonth); 
+            totalExpensesEl.textContent = `-${formatCurrency(expensesThisMonth)}`; 
+            netProfitEl.textContent = formatCurrency(netProfitThisMonth);
+            netProfitEl.className = netProfitThisMonth >= 0 ? 'net-profit' : 'total-expenses';
+        };
+        
         function setupEventListeners() { 
-            subscriptionType.addEventListener('change', updatePaymentAmount);
+            undoBtn.addEventListener('click', () => {
+                if (!lastAction) return;
+                if (lastAction.type === 'delete') {
+                    setDoc(doc(db, `users/${userId}/customers`, lastAction.id), lastAction.data);
+                }
+                if (lastAction.type === 'edit') {
+                    updateDoc(doc(db, `users/${userId}/customers`, lastAction.id), lastAction.data);
+                }
+                lastAction = null;
+                updateUndoButton();
+            });
             
-            expenseForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                if (!userId) { return alert("Cannot add expense: User not signed in."); }
-                const amount = parseFloat(document.getElementById('expenseAmount').value);
-                if (isNaN(amount) || amount <= 0) { return alert("Please enter a valid expense amount."); }
-                const newExpense = {
-                    date: expenseDateInput.value, amount: amount,
-                    description: document.getElementById('expenseType').value
-                };
-                addDoc(collection(db, `users/${userId}/expenses`), newExpense)
-                    .then(() => { expenseForm.reset(); initializeFormDefaults(); })
-                    .catch(error => console.error("Error adding expense:", error));
+            customerTableBody.addEventListener('change', (e) => {
+                const row = e.target.closest('tr'); if (!row) return;
+                const isStartDate = e.target.dataset.prop === 'subDate';
+                const isSubType = e.target.dataset.prop === 'subscriptionType';
+                if (isStartDate || isSubType) {
+                    const startDateInput = row.querySelector('[data-prop="subDate"]');
+                    const subTypeInput = row.querySelector('[data-prop="subscriptionType"]');
+                    const endDateInput = row.querySelector('[data-prop="endDate"]');
+                    const newStartDate = new Date(startDateInput.value);
+                    const subType = subTypeInput.value;
+                    if (!newStartDate.getTime()) return;
+                    if (subType === 'trial') { newStartDate.setDate(newStartDate.getDate() + 7); } 
+                    else { newStartDate.setMonth(newStartDate.getMonth() + parseInt(subType, 10)); }
+                    endDateInput.value = formatDisplayDate(newStartDate);
+                }
             });
 
-            customerForm.addEventListener('submit', (e) => {
-                 e.preventDefault(); const submitButton = customerForm.querySelector('button[type="submit"]'); if (!userId) { alert("Error: User ID is not set. Cannot add customer."); return; } const customerName = customerNameInput.value.trim(); if (!customerName) { alert("Please enter a customer name."); customerNameInput.focus(); return; } try { const formData = new FormData(customerForm); const newCustomer = { name: customerName, login: loginInput.value, password: passwordInput.value, subDate: formData.get('subscriptionDate'), endDate: subscriptionEndingDate.value, status: formData.get('paymentStatus'), note: formData.get('specialNote'), amount: parseFloat(paymentAmountInput.value) || 0 }; submitButton.disabled = true; submitButton.textContent = 'Adding...'; addDoc(collection(db, `users/${userId}/customers`), newCustomer).then(() => { alert('Customer added successfully!'); customerForm.reset(); initializeFormDefaults(); }).catch(error => { console.error("Error adding customer to Firebase: ", error); alert(`Error: Could not add customer. ${error.message}`); }).finally(() => { submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; }); } catch (error) { console.error("Error creating customer object: ", error); alert(`An unexpected error occurred: ${error.message}`); submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; } 
-            });
-            
             customerTableBody.addEventListener('click', (e) => {
-                const row = e.target.closest('tr');
-                if (!row) return;
+                const row = e.target.closest('tr'); if (!row) return;
                 const docId = row.dataset.id;
                 const customer = localCustomers.find(c => c.id === docId);
 
@@ -469,25 +554,21 @@
 
                 if (e.target.classList.contains('btn-save')) {
                     const updatedData = {
-                        name: row.querySelector('[data-prop="name"]').value,
-                        login: row.querySelector('[data-prop="login"]').value,
-                        status: row.querySelector('[data-prop="status"]').value,
-                        note: row.querySelector('[data-prop="note"]').value,
+                        name: row.querySelector('[data-prop="name"]').value, login: row.querySelector('[data-prop="login"]').value,
+                        status: row.querySelector('[data-prop="status"]').value, note: row.querySelector('[data-prop="note"]').value,
+                        subDate: formatDate(row.querySelector('[data-prop="subDate"]').value),
+                        subscriptionType: row.querySelector('[data-prop="subscriptionType"]').value,
+                        endDate: formatDate(row.querySelector('[data-prop="endDate"]').value)
                     };
-                    updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData)
-                        .then(() => {
-                           const updatedCustomer = { ...customer, ...updatedData };
-                           row.innerHTML = renderRow_ViewMode(updatedCustomer);
-                           const dayDiff = Math.ceil((new Date(updatedCustomer.endDate) - new Date()) / (1000 * 3600 * 24));
-                           row.classList.remove('row-expired', 'row-expiring');
-                           if (dayDiff < 0) row.classList.add('row-expired');
-                           else if (dayDiff < 5) row.classList.add('row-expiring');
-                        })
-                        .catch(err => console.error("Update failed:", err));
+                    lastAction = { type: 'edit', action: `edit on ${customer.name}`, id: docId, data: { ...customer } };
+                    updateUndoButton();
+                    updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
                 }
                 
                 if (e.target.classList.contains('btn-delete')) {
                     if (confirm('Are you sure you want to delete this customer?')) {
+                        lastAction = { type: 'delete', action: `delete of ${customer.name}`, id: docId, data: { ...customer } };
+                        updateUndoButton();
                         deleteDoc(doc(db, `users/${userId}/customers`, docId));
                     }
                 }
@@ -502,17 +583,13 @@
                 }
             });
             
-            document.getElementById('customer-table').querySelector('thead').addEventListener('click', (e) => {
-                const header = e.target.closest('th.sortable');
-                if (!header) return;
-                const key = header.dataset.sort;
-                const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
-                sortConfig = { key, direction };
-                document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
-                header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
-                renderTable();
-            });
-
+            document.getElementById('customer-table').querySelector('thead').addEventListener('click', (e) => { const header = e.target.closest('th.sortable'); if (!header) return; const key = header.dataset.sort; const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'; sortConfig = { key, direction }; document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc')); header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc'); renderTable(); });
+            
+            expenseForm.addEventListener('submit', (e) => { e.preventDefault(); if (!userId) { return alert("Cannot add expense: User not signed in."); } const amount = parseFloat(document.getElementById('expenseAmount').value); if (isNaN(amount) || amount <= 0) { return alert("Please enter a valid expense amount."); } const newExpense = { date: expenseDateInput.value, amount: amount, description: document.getElementById('expenseType').value }; addDoc(collection(db, `users/${userId}/expenses`), newExpense).then(() => { expenseForm.reset(); initializeFormDefaults(); }).catch(error => console.error("Error adding expense:", error)); });
+            
+            customerForm.addEventListener('submit', (e) => { e.preventDefault(); const submitButton = customerForm.querySelector('button[type="submit"]'); if (!userId) { alert("Error: User ID is not set."); return; } const customerName = customerNameInput.value.trim(); if (!customerName) { alert("Please enter a customer name."); customerNameInput.focus(); return; } try { const formData = new FormData(customerForm); const newCustomer = { name: customerName, login: loginInput.value, password: passwordInput.value, subDate: formData.get('subscriptionDate'), endDate: subscriptionEndingDate.value, status: formData.get('paymentStatus'), note: formData.get('specialNote'), amount: parseFloat(paymentAmountInput.value) || 0, subscriptionType: formData.get('subscriptionType') }; submitButton.disabled = true; submitButton.textContent = 'Adding...'; addDoc(collection(db, `users/${userId}/customers`), newCustomer).then(() => { alert('Customer added successfully!'); customerForm.reset(); initializeFormDefaults(); }).catch(error => { console.error("Error adding customer:", error); alert(`Error: ${error.message}`); }).finally(() => { submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; }); } catch (error) { console.error("Error creating customer:", error); alert(`Error: ${error.message}`); submitButton.disabled = false; submitButton.textContent = 'Add New Customer'; } });
+            
+            subscriptionType.addEventListener('change', updatePaymentAmount);
             customerNameInput.addEventListener('input', (e) => { const { login, password } = generateCredentials(e.target.value); loginInput.value = login; passwordInput.value = password; }); 
             subscriptionDate.addEventListener('change', calculateEndDate); 
             subscriptionType.addEventListener('change', calculateEndDate); 
@@ -521,18 +598,7 @@
             searchInput.addEventListener('input', renderTable); 
         }
 
-        function formatDate(dateString) { if (!dateString) return ''; const date = new Date(dateString); date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; };
-        function formatDisplayDate(dateString) { if (!dateString) return ''; const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]; const date = new Date(dateString); date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); const day = String(date.getDate()).padStart(2, '0'); const month = months[date.getMonth()]; const year = date.getFullYear(); return `${day}-${month}-${year}`; }
-        const calculateEndDate = () => { const startDate = new Date(subscriptionDate.value); const type = subscriptionType.value; if (!startDate.getTime() || !subscriptionDate.value) return; if (type === 'trial') { startDate.setDate(startDate.getDate() + 7); } else { startDate.setMonth(startDate.getMonth() + parseInt(type, 10)); } subscriptionEndingDate.value = formatDate(startDate); };
-        const formatCurrency = (amount) => (amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-        const generateCredentials = (fullName) => { if (!fullName) { return { login: '', password: '' }; } const names = fullName.trim().split(' ').filter(n => n); const firstName = (names[0] || '').toUpperCase(); const lastName = (names.length > 1 ? names[names.length - 1] : '').toUpperCase(); const login = 'M26' + firstName.substring(0, 3); let password = lastName ? 'M26' + firstName.substring(0, 2) + lastName.substring(0, 2) : 'M26' + firstName.substring(0, 2) + firstName.slice(-2); return { login, password }; };
-        const updateSummary = () => { const selectedMonth = summaryMonthEl.value; const selectedYear = summaryYearEl.value; let customersForPeriod = localCustomers; let expensesForPeriod = localExpenses; if (selectedMonth !== 'all') { customersForPeriod = localCustomers.filter(c => { const subDate = new Date(c.subDate); return subDate.getFullYear() == selectedYear && subDate.getMonth() == selectedMonth; }); expensesForPeriod = localExpenses.filter(e => { const expDate = new Date(e.date); return expDate.getFullYear() == selectedYear && expDate.getMonth() == selectedMonth; }); } const incomeThisMonth = customersForPeriod.filter(c => c.status === 'Paid').reduce((sum, c) => sum + (c.amount || 0), 0); const expensesThisMonth = expensesForPeriod.reduce((sum, e) => sum + (e.amount || 0), 0); const netProfitThisMonth = incomeThisMonth - expensesThisMonth; customerCountEl.textContent = customersForPeriod.length; totalIncomeEl.textContent = formatCurrency(incomeThisMonth); totalExpensesEl.textContent = `-${formatCurrency(expensesThisMonth)}`; netProfitEl.textContent = formatCurrency(netProfitThisMonth); netProfitEl.classList.toggle('net-profit', netProfitThisMonth >= 0); netProfitEl.classList.toggle('total-expenses', netProfitThisMonth < 0); };
-        const renderExpensesTable = () => { expenseTableBody.innerHTML = ''; if (localExpenses.length === 0) { expenseTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No expenses yet.</td></tr>`; return; } localExpenses.sort((a, b) => new Date(b.date) - new Date(a.date)); localExpenses.forEach((expense) => { const row = document.createElement('tr'); row.dataset.id = expense.id; row.innerHTML = `<td>${expense.description}</td><td>${formatCurrency(expense.amount)}</td><td>${formatDisplayDate(expense.date)}</td><td><button class="btn btn-delete">Delete</button></td>`; expenseTableBody.appendChild(row); }); };
-        const initializeFormDefaults = () => { const today = new Date(); subscriptionDate.value = formatDate(today); expenseDateInput.value = formatDate(today); calculateEndDate(); updatePaymentAmount(); loginInput.value = ''; passwordInput.value = ''; };
-        const populateDateFilters = () => { const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]; const currentYear = new Date().getFullYear(); const currentMonth = new Date().getMonth(); summaryMonthEl.innerHTML = `<option value="all">All Time</option>`; months.forEach((month, index) => { summaryMonthEl.innerHTML += `<option value="${index}">${month}</option>`; }); summaryYearEl.innerHTML = ''; for (let i = currentYear - 5; i <= currentYear + 5; i++) { summaryYearEl.innerHTML += `<option value="${i}">${i}</option>`; } summaryMonthEl.value = currentMonth; summaryYearEl.value = currentYear; };
-        
         populateDateFilters();
-        initializeFormDefaults();
         main();
     </script>
 </body>
