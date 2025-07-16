@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -179,7 +178,7 @@
         
         thead th {
             font-size: 0.8em;
-            font-weight: 700; /* Bolder header */
+            font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -203,6 +202,42 @@
         .btn-delete { background-color: #f8d7da; color: var(--danger-color); }
         .btn-delete:hover { background-color: var(--danger-color); color: #fff; }
 
+        .modal-overlay {
+            display: none; 
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        #delayed-list li {
+            padding: 5px 0;
+        }
+
         @media (max-width: 992px) {
             .container { flex-direction: column; }
             aside { width: 100%; box-sizing: border-box; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -225,13 +260,8 @@
                 <div class="summary-item"><span>Net Profit This Month</span><span id="netProfit">$0.00</span></div>
             </div>
             <div class="card">
-                <h3>Add Expense</h3>
-                <form id="expenseForm" class="form-group">
-                    <label for="expenseType">Purchasing Credits</label><select id="expenseType" name="expenseType" required><option>Smart4k</option><option>Magic</option></select>
-                    <label for="expenseAmount">Amount ($)</label><input type="number" id="expenseAmount" name="expenseAmount" min="0" step="0.01" required>
-                    <label for="expenseDate">Expense Date</label><input type="date" id="expenseDate" name="expenseDate" required>
-                    <button type="submit" class="btn" style="padding: 12px 20px; margin-top: 10px; background-color: var(--success-color); color: #fff;">Add Expense</button>
-                </form>
+                <h3>Expense Management</h3>
+                <button id="add-expense-btn" class="btn" style="background-color: var(--success-color); color: #fff; width: 100%; padding: 12px;">Add New Expense</button>
             </div>
             <div class="card">
                 <h3>Expense List</h3>
@@ -249,6 +279,9 @@
                 <h1>IPTV Dashboard</h1>
                 <button class="btn" id="undo-btn" disabled>Undo Last Action</button>
             </div>
+            
+            <div id="notification-bar" class="notification-bar" style="display: none;"></div>
+
             <div class="card">
                 <h2>Create New Customer</h2>
                 <form id="newCustomerForm">
@@ -261,19 +294,9 @@
                         <div class="form-group">
                             <label for="subscriptionType">Subscription</label>
                             <select id="subscriptionType" name="subscriptionType" required>
-                                <option value="1">1 Month</option>
-                                <option value="2">2 Months</option>
-                                <option value="3">3 Months</option>
-                                <option value="4">4 Months</option>
-                                <option value="5">5 Months</option>
-                                <option value="6" selected>6 Months</option>
-                                <option value="7">7 Months</option>
-                                <option value="8">8 Months</option>
-                                <option value="9">9 Months</option>
-                                <option value="10">10 Months</option>
-                                <option value="11">11 Months</option>
-                                <option value="12">12 Months</option>
-                                <option value="trial">Trial (7 days)</option>
+                                <option value="1">1 Month</option><option value="2">2 Months</option><option value="3">3 Months</option><option value="4">4 Months</option><option value="5">5 Months</option>
+                                <option value="6" selected>6 Months</option><option value="7">7 Months</option><option value="8">8 Months</option><option value="9">9 Months</option><option value="10">10 Months</option>
+                                <option value="11">11 Months</option><option value="12">12 Months</option><option value="trial">Trial (7 days)</option>
                             </select>
                         </div>
                         <div class="form-group"><label for="subscriptionDate">Subscription Date</label><input type="date" id="subscriptionDate" name="subscriptionDate" required></div>
@@ -310,6 +333,25 @@
         </main>
     </div>
 
+    <div id="delayed-payment-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Delayed Payments Reminder</h3><button id="modal-close-btn" class="modal-close">&times;</button></div>
+            <ul id="delayed-list"></ul>
+        </div>
+    </div>
+
+    <div id="expense-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Add New Expense</h3><button id="expense-modal-close-btn" class="modal-close">&times;</button></div>
+            <form id="expenseForm" class="form-group">
+                <label for="expenseType">Purchasing Credits</label><select id="expenseType" name="expenseType" required><option>Smart4k</option><option>Magic</option></select>
+                <label for="expenseAmount">Amount ($)</label><input type="number" id="expenseAmount" name="expenseAmount" min="0" step="0.01" required>
+                <label for="expenseDate">Expense Date</label><input type="date" id="expenseDate" name="expenseDate" required>
+                <button type="submit" class="btn" style="padding: 12px 20px; margin-top: 10px; background-color: var(--success-color); color: #fff;">Add Expense</button>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -336,6 +378,13 @@
         const summaryYearEl = document.getElementById('summaryYear');
         const searchInput = document.getElementById('searchInput');
         const undoBtn = document.getElementById('undo-btn');
+        const notificationBar = document.getElementById('notification-bar');
+        const delayedPaymentModal = document.getElementById('delayed-payment-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const delayedList = document.getElementById('delayed-list');
+        const addExpenseBtn = document.getElementById('add-expense-btn');
+        const expenseModal = document.getElementById('expense-modal');
+        const expenseModalCloseBtn = document.getElementById('expense-modal-close-btn');
         
         let localCustomers = [];
         let localExpenses = [];
@@ -438,6 +487,32 @@
             initializeFormDefaults();
         }
 
+        const checkDelayedPayments = () => {
+            const today = new Date();
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(today.getDate() - 2);
+
+            const delayedCustomers = localCustomers.filter(customer => {
+                const subDate = new Date(customer.subDate);
+                return customer.status === 'Unpaid' && subDate < twoDaysAgo;
+            });
+
+            if (delayedCustomers.length > 0) {
+                notificationBar.textContent = `You have ${delayedCustomers.length} customer(s) with delayed payments.`;
+                notificationBar.style.display = 'block';
+                delayedList.innerHTML = '';
+                delayedCustomers.forEach(customer => {
+                    const li = document.createElement('li');
+                    li.textContent = `${customer.name} - Payment due since ${formatDisplayDate(customer.subDate)}`;
+                    delayedList.appendChild(li);
+                });
+                delayedPaymentModal.style.display = 'flex';
+            } else {
+                notificationBar.style.display = 'none';
+                delayedPaymentModal.style.display = 'none';
+            }
+        };
+
         function loadData(uid) {
             if (!uid) { return; }
             const customerCol = collection(db, `users/${uid}/customers`);
@@ -445,6 +520,7 @@
                 localCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderTable();
                 updateSummary();
+                checkDelayedPayments();
             });
             const expenseCol = collection(db, `users/${uid}/expenses`);
             onSnapshot(expenseCol, (snapshot) => {
@@ -574,6 +650,16 @@
                 lastAction = null;
                 updateUndoButton();
             });
+
+            addExpenseBtn.addEventListener('click', () => {
+                expenseModal.style.display = 'flex';
+            });
+            expenseModalCloseBtn.addEventListener('click', () => {
+                expenseModal.style.display = 'none';
+            });
+            modalCloseBtn.addEventListener('click', () => {
+                delayedPaymentModal.style.display = 'none';
+            });
             
             customerTableBody.addEventListener('change', (e) => {
                 const row = e.target.closest('tr'); if (!row) return;
@@ -637,7 +723,18 @@
             
             document.getElementById('customer-table').querySelector('thead').addEventListener('click', (e) => { const header = e.target.closest('th.sortable'); if (!header) return; const key = header.dataset.sort; const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'; sortConfig = { key, direction }; document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc')); header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc'); renderTable(); });
             
-            expenseForm.addEventListener('submit', (e) => { e.preventDefault(); if (!userId) { return alert("Cannot add expense: User not signed in."); } const amount = parseFloat(document.getElementById('expenseAmount').value); if (isNaN(amount) || amount <= 0) { return alert("Please enter a valid expense amount."); } const newExpense = { date: expenseDateInput.value, amount: amount, description: document.getElementById('expenseType').value }; addDoc(collection(db, `users/${userId}/expenses`), newExpense).then(() => { expenseForm.reset(); initializeFormDefaults(); }).catch(error => console.error("Error adding expense:", error)); });
+            expenseForm.addEventListener('submit', (e) => { 
+                e.preventDefault(); 
+                if (!userId) { return alert("Cannot add expense: User not signed in."); } 
+                const amount = parseFloat(document.getElementById('expenseAmount').value); 
+                if (isNaN(amount) || amount <= 0) { return alert("Please enter a valid expense amount."); } 
+                const newExpense = { date: expenseDateInput.value, amount: amount, description: document.getElementById('expenseType').value }; 
+                addDoc(collection(db, `users/${userId}/expenses`), newExpense).then(() => { 
+                    expenseForm.reset(); 
+                    initializeFormDefaults();
+                    expenseModal.style.display = 'none'; // Close modal on success
+                }).catch(error => console.error("Error adding expense:", error)); 
+            });
             
             customerForm.addEventListener('submit', (e) => { 
                 e.preventDefault(); 
@@ -703,4 +800,3 @@
     </script>
 </body>
 </html>
-```
