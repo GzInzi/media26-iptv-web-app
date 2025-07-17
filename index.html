@@ -14,6 +14,7 @@
             --accent-color: #3b82f6;
             --accent-hover: #2563eb;
             --danger-color: #ef4444;
+            --danger-hover: #dc2626;
             --success-color: #22c55e;
             --warning-color: #f59e0b;
             --info-color: #6366f1;
@@ -120,7 +121,7 @@
         }
         
         .form-group { display: flex; flex-direction: column; gap: 8px; }
-        .form-group.full-width { grid-column: 1 / -1; }
+        .full-width { grid-column: 1 / -1; }
         label { font-weight: 500; font-size: 0.9em; color: var(--text-secondary); }
         input, select, textarea {
             background-color: #f9fafb;
@@ -143,11 +144,18 @@
         .btn-primary { background-color: var(--accent-color); color: #fff; }
         .btn-primary:hover { background-color: var(--accent-hover); }
         .btn-danger { background-color: var(--danger-color); color: #fff; }
+        .btn-edit { background-color: #e0e7ff; color: #4338ca; }
+        .btn-edit:hover { background-color: #c7d2fe; }
+        .btn-save { background-color: #dcfce7; color: #16a34a; }
+        .btn-save:hover { background-color: #bbf7d0; }
 
         .table-container { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap;}
         thead th { background-color: #f9fafb; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .actions-cell { display: flex; gap: 8px; }
+        .row-expired { background-color: #fee2e2; }
+
     </style>
 </head>
 <body>
@@ -226,8 +234,8 @@
                         <div class="form-group"><label for="subscriptionEndingDate">Subscription Ending Date</label><input type="text" id="subscriptionEndingDate" name="subscriptionEndingDate" readonly></div>
                         <div class="form-group"><label for="paymentStatus">Payment Status</label><select id="paymentStatus" name="paymentStatus" required><option>Paid</option><option>Unpaid</option></select></div>
                         <div class="form-group"><label for="paymentAmount">Payment Amount ($)</label><input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" required></div>
-                        <div class="form-group full-width" style="grid-column: 1 / -1;"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
-                        <div class="form-group full-width" style="grid-column: 1 / -1;"><button type="submit" class="btn btn-primary">Add New Customer</button></div>
+                        <div class="form-group full-width"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
+                        <div class="form-group full-width"><button type="submit" class="btn btn-primary">Add New Customer</button></div>
                     </div>
                 </form>
             </div>
@@ -236,7 +244,15 @@
                 <div class="table-container">
                     <table id="customer-table">
                         <thead>
-                            <tr><th>Name</th><th>Phone</th><th>Login</th><th>Ends On</th><th>Days Left</th><th>Actions</th></tr>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Login</th>
+                                <th>Started On</th>
+                                <th>Ends On</th>
+                                <th>Days Left</th>
+                                <th>Actions</th>
+                            </tr>
                         </thead>
                         <tbody id="customerTableBody"></tbody>
                     </table>
@@ -291,7 +307,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
         // --- DOM ELEMENTS ---
         const navTabsContainer = document.querySelector('.nav-tabs');
@@ -328,6 +344,12 @@
             const options = { year: 'numeric', month: 'short', day: 'numeric' };
             return date.toLocaleDateString('en-US', options);
         };
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+            return date.toISOString().split('T')[0];
+        };
         const generateCredentials = (fullName) => {
             if (!fullName) { return { login: '', password: '' }; }
             const names = fullName.trim().split(' ').filter(n => n);
@@ -354,30 +376,43 @@
             else { const months = parseInt(subscriptionValue, 10); amount = months * 10; }
             paymentAmountInput.value = amount.toFixed(2);
         };
-         const formatDate = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
 
         // --- RENDER FUNCTIONS ---
+        const renderRow_ViewMode = (customer) => {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const endDate = new Date(customer.endDate);
+            const dayDiff = Math.ceil((endDate - today) / (1000 * 3600 * 24));
+            return `
+                <td>${customer.name}</td><td>${customer.phone || '-'}</td><td>${customer.login}</td>
+                <td>${formatDisplayDate(customer.subDate)}</td><td>${formatDisplayDate(customer.endDate)}</td>
+                <td>${dayDiff < 0 ? 'Expired' : dayDiff}</td>
+                <td class="actions-cell">
+                    <button class="btn btn-edit" data-id="${customer.id}">Edit</button>
+                    <button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button>
+                </td>`;
+        };
+        const renderRow_EditMode = (customer) => {
+            return `
+                <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
+                <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
+                <td><input type="text" data-prop="login" value="${customer.login || ''}" readonly></td>
+                <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
+                <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
+                <td>...</td>
+                <td class="actions-cell">
+                    <button class="btn btn-primary btn-save-customer" data-id="${customer.id}">Save</button>
+                </td>`;
+        };
+
         const renderCustomersTable = () => {
             customerTableBody.innerHTML = '';
-            const today = new Date(); today.setHours(0, 0, 0, 0);
             [...localCustomers].sort((a,b) => new Date(b.subDate) - new Date(a.subDate)).forEach(customer => {
                 const row = document.createElement('tr');
+                row.dataset.id = customer.id;
+                const today = new Date(); today.setHours(0, 0, 0, 0);
                 const endDate = new Date(customer.endDate);
-                const dayDiff = Math.ceil((endDate - today) / (1000 * 3600 * 24));
-                if(dayDiff < 0) row.style.backgroundColor = '#fee2e2';
-                
-                row.innerHTML = `
-                    <td>${customer.name}</td><td>${customer.phone || '-'}</td><td>${customer.login}</td>
-                    <td>${formatDisplayDate(customer.endDate)}</td><td>${dayDiff < 0 ? 'Expired' : dayDiff}</td>
-                    <td><button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button></td>`;
+                if (endDate < today) row.classList.add('row-expired');
+                row.innerHTML = renderRow_ViewMode(customer);
                 customerTableBody.appendChild(row);
             });
         };
@@ -422,7 +457,6 @@
             netProfitEl.textContent = formatCurrency(totalIncome - totalExp);
         };
 
-        // --- EVENT LISTENERS ---
         function setupEventListeners() {
             navTabsContainer.addEventListener('click', (e) => {
                 if (e.target.matches('.nav-tab')) {
@@ -430,8 +464,7 @@
                     e.target.classList.add('active');
                     
                     tabContents.forEach(content => content.classList.remove('active'));
-                    const tabId = e.target.dataset.tab;
-                    document.getElementById(`${tabId}-tab-content`).classList.add('active');
+                    document.getElementById(`${e.target.dataset.tab}-tab-content`).classList.add('active');
                 }
             });
 
@@ -451,6 +484,7 @@
                     phone: formData.get('phone'),
                     login: formData.get('login'),
                     password: formData.get('password'),
+                    macAddress: formData.get('macAddress'),
                     subDate: formData.get('subscriptionDate'),
                     endDate: formData.get('subscriptionEndingDate'),
                     status: formData.get('paymentStatus'),
@@ -481,20 +515,38 @@
                 addDoc(collection(db, `users/${userId}/inventory`), newItem);
                 inventoryForm.reset();
             });
-
+            
+            customerTableBody.addEventListener('click', e => {
+                const docId = e.target.dataset.id;
+                if(!docId) return;
+                
+                if (e.target.classList.contains('btn-edit')) {
+                    const customer = localCustomers.find(c => c.id === docId);
+                    e.target.closest('tr').innerHTML = renderRow_EditMode(customer);
+                } else if (e.target.classList.contains('btn-save-customer')) {
+                    const row = e.target.closest('tr');
+                    const updatedData = {
+                        name: row.querySelector('[data-prop="name"]').value,
+                        phone: row.querySelector('[data-prop="phone"]').value,
+                        subDate: row.querySelector('[data-prop="subDate"]').value,
+                        endDate: row.querySelector('[data-prop="endDate"]').value
+                    };
+                    updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
+                } else if (e.target.classList.contains('btn-delete-customer')) {
+                    if (confirm('Are you sure?')) deleteDoc(doc(db, `users/${userId}/customers`, docId));
+                }
+            });
+            
             const createDeleteListener = (container, collectionName) => {
                 container.addEventListener('click', e => {
                     const button = e.target.closest(`.btn-delete-${collectionName}`);
                     if(button){
                         const docId = button.dataset.id;
-                        if(confirm('Are you sure you want to delete this item?')) {
-                            deleteDoc(doc(db, `users/${userId}/${collectionName}`, docId));
-                        }
+                        if(confirm('Are you sure?')) deleteDoc(doc(db, `users/${userId}/${collectionName}`, docId));
                     }
                 });
             };
             
-            createDeleteListener(customerTableBody, 'customer');
             createDeleteListener(expenseTableBody, 'expense');
             createDeleteListener(inventoryTableBody, 'inventory');
 
@@ -505,7 +557,6 @@
             subscriptionDate.addEventListener('change', calculateEndDate);
         }
 
-        // --- INITIALIZE APP ---
         function startApp() {
             const firebaseConfig = {
                 apiKey: "AIzaSyD2rTmmE1S7r3HWEBfPyCy4z3bm0laf_zY",
@@ -542,7 +593,6 @@
         }
         
         startApp();
-
     </script>
 </body>
 </html>
