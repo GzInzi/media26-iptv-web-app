@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,6 +35,7 @@
             padding: 0 40px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
         }
         
         .nav-tabs {
@@ -151,6 +151,13 @@
         .btn-save:hover { background-color: #bbf7d0; }
         .btn-secondary { background-color: #e5e7eb; color: #4b5563; }
         .btn-secondary:hover { background-color: #d1d5db; }
+        .btn-sold { background-color: var(--success-color); color: #fff; }
+        .btn-sold:hover { background-color: #16a34a; }
+        .btn:disabled {
+            background-color: #e5e7eb;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
 
         .table-container { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
@@ -221,7 +228,6 @@
             padding: 6px 8px;
             font-size: 0.9em;
         }
-
     </style>
 </head>
 <body>
@@ -233,6 +239,7 @@
             <button class="nav-tab" data-tab="expenses">Expenses</button>
             <button class="nav-tab" data-tab="inventory">Inventory</button>
         </div>
+        <button id="undo-button" class="btn btn-secondary" disabled>Undo Last Action</button>
     </nav>
 
     <main class="main-content">
@@ -363,20 +370,49 @@
 
         <div id="inventory-tab-content" class="tab-content">
              <h1>Inventory Management</h1>
+              <div class="summary-card" style="background: var(--info-color);">
+                <div class="icon">📦</div>
+                <div>
+                    <div class="value" id="inventoryTotalValue">$0.00</div>
+                    <div class="label">Total Inventory Value</div>
+                </div>
+            </div>
             <div class="card">
                 <h2>Add Inventory Item</h2>
-                <form id="inventoryForm" class="grid-container">
-                    <div class="form-group"><label for="itemName">Item Name</label><input type="text" id="itemName" name="itemName" placeholder="e.g., IPTV Box Model X" required></div>
+                <form id="inventoryForm" class="grid-container" style="grid-template-columns: 1fr 1fr 1fr 1fr 1fr; align-items: flex-end;">
+                    <div class="form-group"><label for="itemName">Item Name</label><input type="text" id="itemName" name="itemName" placeholder="e.g., IPTV Box" required></div>
+                    <div class="form-group"><label for="itemCategory">Category</label>
+                        <select id="itemCategory" name="itemCategory">
+                            <option>Box</option><option>Remote</option><option>Accessory</option><option>Other</option>
+                        </select>
+                    </div>
                     <div class="form-group"><label for="itemQuantity">Quantity</label><input type="number" id="itemQuantity" name="itemQuantity" min="1" required></div>
-                    <div class="form-group"><label for="itemCost">Cost per Item ($)</label><input type="number" id="itemCost" name="itemCost" min="0" step="0.01" required></div>
-                    <div class="form-group" style="align-self: flex-end;"><button type="submit" class="btn btn-primary">Add Item to Inventory</button></div>
+                    <div class="form-group"><label for="purchaseMethod">Purchase Method</label>
+                        <select id="purchaseMethod" name="purchaseMethod">
+                            <option>Own Purchase</option><option>Loan</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label for="itemCost">Purchase Cost/Item ($)</label><input type="number" id="itemCost" name="itemCost" min="0" step="0.01" required></div>
+                    <div class="form-group"><label for="itemSaleValue">Sale Value/Item ($)</label><input type="number" id="itemSaleValue" name="itemSaleValue" min="0" step="0.01" required></div>
+                    <div class="form-group" style="grid-column: 5 / -1;"><button type="submit" class="btn btn-primary">Add to Inventory</button></div>
                 </form>
             </div>
             <div class="card">
                 <h2>Inventory List</h2>
                 <div class="table-container">
                     <table>
-                        <thead><tr><th>Item Name</th><th>Quantity</th><th>Cost per Item</th><th>Actions</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Quantity</th>
+                                <th>Sale Value</th>
+                                <th>Total Value</th>
+                                <th>Profit/Item</th>
+                                <th>Total Profit</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
                         <tbody id="inventoryTableBody"></tbody>
                     </table>
                 </div>
@@ -386,7 +422,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
         // --- DOM ELEMENTS ---
         const navTabsContainer = document.querySelector('.nav-tabs');
@@ -407,6 +443,9 @@
         const reportExpensesEl = document.getElementById('reportExpenses');
         const reportProfitEl = document.getElementById('reportProfit');
 
+        const inventoryTotalValueEl = document.getElementById('inventoryTotalValue');
+        const undoButton = document.getElementById('undo-button');
+
         const subscriptionType = document.getElementById('subscriptionType');
         const subscriptionDate = document.getElementById('subscriptionDate');
         const subscriptionEndingDate = document.getElementById('subscriptionEndingDate');
@@ -414,14 +453,31 @@
         
         // --- GLOBAL & STATE VARIABLES ---
         let localCustomers = [];
+        let allCustomers = [];
         let localExpenses = [];
         let localInventory = [];
+        let localIncome = [];
         let alertedCustomers = new Set();
         let userId = "gL1KLYx6NqdokNaHoY3zhUvoRPo1";
         let db;
         let sortColumn = 'subDate';
         let sortDirection = 'desc';
         let searchQuery = '';
+        let lastAction = null;
+
+        // --- UNDO FUNCTIONALITY ---
+        const setUndoAction = (undoCallback) => {
+            lastAction = undoCallback;
+            undoButton.disabled = false;
+        };
+
+        undoButton.addEventListener('click', () => {
+            if (typeof lastAction === 'function') {
+                lastAction();
+                lastAction = null;
+                undoButton.disabled = true;
+            }
+        });
 
         // --- UTILITY FUNCTIONS ---
         const formatCurrency = (amount) => (amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -451,7 +507,7 @@
             const type = subscriptionType.value;
             if (!startDate.getTime() || !subscriptionDate.value) return;
             if (type === 'trial') {
-                startDate.setDate(startDate.getDate() + 2); // 2-day trial
+                startDate.setDate(startDate.getDate() + 2);
             } else {
                 startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
             }
@@ -497,50 +553,79 @@
                     <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
                 </td>`;
         };
+        
+        const renderInventoryRow_View = (item) => {
+            const totalValue = (Number(item.quantity) || 0) * (Number(item.purchaseCost) || 0);
+            const profitPerItem = (Number(item.saleValue) || 0) - (Number(item.purchaseCost) || 0);
+            const totalProfit = profitPerItem * (Number(item.quantity) || 0);
+
+            return `
+                <td>${item.name}</td>
+                <td>${item.category}</td>
+                <td>${item.quantity}</td>
+                <td>${formatCurrency(item.saleValue)}</td>
+                <td>${formatCurrency(totalValue)}</td>
+                <td>${formatCurrency(profitPerItem)}</td>
+                <td>${formatCurrency(totalProfit)}</td>
+                <td class="actions-cell">
+                    <button class="btn btn-sold" data-id="${item.id}">Sold</button>
+                    <button class="btn btn-edit btn-edit-inventory" data-id="${item.id}">Edit</button>
+                    <button class="btn btn-danger btn-delete-inventory" data-id="${item.id}">Delete</button>
+                </td>
+            `;
+        }
+
+        const renderInventoryRow_Edit = (item) => `
+            <td><input type="text" data-prop="name" value="${item.name}"></td>
+            <td>
+                <select data-prop="category">
+                    <option ${item.category === 'Box' ? 'selected' : ''}>Box</option>
+                    <option ${item.category === 'Remote' ? 'selected' : ''}>Remote</option>
+                    <option ${item.category === 'Accessory' ? 'selected' : ''}>Accessory</option>
+                    <option ${item.category === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+            </td>
+            <td><input type="number" data-prop="quantity" value="${item.quantity}"></td>
+            <td><input type="number" data-prop="saleValue" value="${item.saleValue}"></td>
+            <td>...</td>
+            <td>...</td>
+            <td>...</td>
+            <td class="actions-cell">
+                <button class="btn btn-save btn-save-inventory" data-id="${item.id}">Save</button>
+                <button class="btn btn-secondary btn-cancel-inventory" data-id="${item.id}">Cancel</button>
+            </td>
+        `;
 
         const displayCustomers = () => {
             const today = new Date(); today.setHours(0, 0, 0, 0);
-
             const processedCustomers = localCustomers.map(c => {
                 const endDate = new Date(c.endDate);
                 const daysLeft = Math.ceil((endDate - today) / (1000 * 3600 * 24));
                 return { ...c, daysLeft };
             });
-
             const lowerCaseQuery = searchQuery.toLowerCase();
             const filteredCustomers = !searchQuery ? processedCustomers : processedCustomers.filter(c =>
                 c.name?.toLowerCase().includes(lowerCaseQuery) ||
                 c.phone?.includes(lowerCaseQuery) ||
                 c.login?.toLowerCase().includes(lowerCaseQuery)
             );
-
             filteredCustomers.sort((a, b) => {
-                const valA = a[sortColumn];
-                const valB = b[sortColumn];
-
+                const valA = a[sortColumn]; const valB = b[sortColumn];
                 let comparison = 0;
-                if (valA > valB) { comparison = 1; } 
-                else if (valA < valB) { comparison = -1; }
+                if (valA > valB) { comparison = 1; } else if (valA < valB) { comparison = -1; }
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
-
             customerTableBody.innerHTML = '';
             filteredCustomers.forEach(customer => {
-                const row = document.createElement('tr');
-                row.dataset.id = customer.id;
-                
+                const row = document.createElement('tr'); row.dataset.id = customer.id;
                 if (customer.daysLeft < 0) { row.classList.add('row-expired'); } 
                 else if (customer.daysLeft < 5) { row.classList.add('row-expires-soon'); }
-
                 row.innerHTML = renderRow_ViewMode(customer);
                 customerTableBody.appendChild(row);
             });
-            
             customerTableHeader.querySelectorAll('th[data-sort]').forEach(th => {
                 th.classList.remove('sort-asc', 'sort-desc');
-                if (th.dataset.sort === sortColumn) {
-                    th.classList.add(`sort-${sortDirection}`);
-                }
+                if (th.dataset.sort === sortColumn) { th.classList.add(`sort-${sortDirection}`); }
             });
         };
 
@@ -560,10 +645,8 @@
             inventoryTableBody.innerHTML = '';
             localInventory.forEach(item => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.name}</td><td>${item.quantity}</td>
-                    <td>${formatCurrency(item.cost)}</td>
-                    <td><button class="btn btn-danger btn-delete-inventory" data-id="${item.id}">Delete</button></td>`;
+                row.dataset.id = item.id;
+                row.innerHTML = renderInventoryRow_View(item);
                 inventoryTableBody.appendChild(row);
             });
         };
@@ -571,15 +654,25 @@
         const updateMonthlyReport = () => {
             if(!reportMonthEl.value) return;
             const [year, month] = reportMonthEl.value.split('-').map(Number);
-            const selectedMonth = month - 1; // JS months are 0-indexed
+            const selectedMonth = month - 1;
 
-            const monthlyIncome = localCustomers.reduce((sum, c) => {
+            const subscriptionIncome = allCustomers.reduce((sum, c) => {
                 const subDate = new Date(c.subDate);
                 if (c.status === 'Paid' && subDate.getFullYear() === year && subDate.getMonth() === selectedMonth) {
                     return sum + (c.amount || 0);
                 }
                 return sum;
             }, 0);
+            
+            const salesIncome = localIncome.reduce((sum, i) => {
+                const saleDate = new Date(i.date);
+                if(saleDate.getFullYear() === year && saleDate.getMonth() === selectedMonth) {
+                    return sum + (i.totalIncome || 0);
+                }
+                return sum;
+            }, 0);
+            
+            const totalIncome = subscriptionIncome + salesIncome;
 
             const monthlyExpenses = localExpenses.reduce((sum, e) => {
                 const expenseDate = new Date(e.date);
@@ -589,36 +682,38 @@
                 return sum;
             }, 0);
 
-            const monthlyProfit = monthlyIncome - monthlyExpenses;
+            const monthlyProfit = totalIncome - monthlyExpenses;
 
-            reportIncomeEl.textContent = formatCurrency(monthlyIncome);
+            reportIncomeEl.textContent = formatCurrency(totalIncome);
             reportExpensesEl.textContent = `-${formatCurrency(monthlyExpenses)}`;
             reportProfitEl.textContent = formatCurrency(monthlyProfit);
         };
 
         const updateSummary = () => {
-            let activeCount = 0;
-            let expiredCount = 0;
-            const todayStart = new Date(); 
-            todayStart.setHours(0,0,0,0);
-            
+            let activeCount = 0; let expiredCount = 0;
+            const todayStart = new Date(); todayStart.setHours(0,0,0,0);
             localCustomers.forEach(c => {
                 new Date(c.endDate) < todayStart ? expiredCount++ : activeCount++;
             });
-
             activeUsersEl.textContent = activeCount;
             expiredUsersEl.textContent = expiredCount;
         };
+
+        const updateInventorySummary = () => {
+            const totalValue = localInventory.reduce((sum, item) => {
+                const quantity = Number(item.quantity) || 0;
+                const cost = Number(item.purchaseCost) || 0;
+                return sum + (quantity * cost);
+            }, 0);
+            inventoryTotalValueEl.textContent = formatCurrency(totalValue);
+        };
         
         const checkOverduePayments = (customers) => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             customers.forEach(customer => {
                 if (customer.status === 'Unpaid' && !alertedCustomers.has(customer.id)) {
                     const subDate = new Date(customer.subDate);
                     const daysSinceSub = Math.floor((today - subDate) / (1000 * 3600 * 24));
-
                     if (daysSinceSub >= 2) {
                         alert(`Payment Alert: Payment for customer '${customer.name}' has been pending for 2 or more days.`);
                         alertedCustomers.add(customer.id);
@@ -632,35 +727,20 @@
                 if (e.target.matches('.nav-tab')) {
                     navTabsContainer.querySelector('.active').classList.remove('active');
                     e.target.classList.add('active');
-                    
                     tabContents.forEach(content => content.classList.remove('active'));
                     document.getElementById(`${e.target.dataset.tab}-tab-content`).classList.add('active');
-                }
-            });
-
-            customerForm.addEventListener('input', (e) => {
-                if(e.target.id === 'customerName') {
-                    const { login, password } = generateCredentials(e.target.value);
-                    document.getElementById('login').value = login;
-                    document.getElementById('password').value = password;
                 }
             });
             
             customerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(customerForm);
-                const newCustomer = {
-                    name: formData.get('customerName'),
-                    phone: formData.get('phone'),
-                    login: formData.get('login'),
-                    password: formData.get('password'),
-                    macAddress: formData.get('macAddress'),
-                    subDate: formData.get('subscriptionDate'),
-                    endDate: formData.get('subscriptionEndingDate'),
-                    status: formData.get('paymentStatus'),
-                    amount: parseFloat(formData.get('paymentAmount'))
-                };
-                addDoc(collection(db, `users/${userId}/customers`), newCustomer);
+                addDoc(collection(db, `users/${userId}/customers`), {
+                    name: formData.get('customerName'), phone: formData.get('phone'), login: formData.get('login'),
+                    password: formData.get('password'), macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
+                    endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
+                    amount: parseFloat(formData.get('paymentAmount')), archived: false
+                });
                 customerForm.reset();
                 document.getElementById('subscriptionDate').value = new Date().toISOString().split('T')[0];
                 updatePaymentAmount();
@@ -669,12 +749,11 @@
 
             expenseForm.addEventListener('submit', e => {
                 e.preventDefault();
-                const newExpense = {
+                addDoc(collection(db, `users/${userId}/expenses`), {
                     description: e.target.expenseType.value,
                     amount: parseFloat(e.target.expenseAmount.value),
                     date: e.target.expenseDate.value
-                };
-                addDoc(collection(db, `users/${userId}/expenses`), newExpense);
+                });
                 expenseForm.reset();
                 document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
             });
@@ -682,43 +761,41 @@
             inventoryForm.addEventListener('submit', e => {
                 e.preventDefault();
                 const newItem = {
-                    name: e.target.itemName.value,
-                    quantity: parseInt(e.target.itemQuantity.value, 10),
-                    cost: parseFloat(e.target.itemCost.value)
+                    name: e.target.itemName.value, category: e.target.itemCategory.value,
+                    quantity: parseInt(e.target.itemQuantity.value, 10), purchaseMethod: e.target.purchaseMethod.value,
+                    purchaseCost: parseFloat(e.target.itemCost.value), saleValue: parseFloat(e.target.itemSaleValue.value)
                 };
+                if (isNaN(newItem.quantity) || isNaN(newItem.purchaseCost) || isNaN(newItem.saleValue)) {
+                    alert("Please enter valid numbers for quantity, cost, and sale value.");
+                    return;
+                }
                 addDoc(collection(db, `users/${userId}/inventory`), newItem);
                 inventoryForm.reset();
             });
             
             customerTableBody.addEventListener('click', e => {
-                const target = e.target;
-                const docId = target.dataset.id;
-                if(!docId) return;
+                const target = e.target; const docId = target.dataset.id; if(!docId) return;
                 
                 if (target.classList.contains('btn-edit')) {
-                    const customer = localCustomers.find(c => c.id === docId);
-                    target.closest('tr').innerHTML = renderRow_EditMode(customer);
+                    target.closest('tr').innerHTML = renderRow_EditMode(localCustomers.find(c => c.id === docId));
                 } else if (target.classList.contains('btn-save-customer')) {
                     const row = target.closest('tr');
-                    const updatedData = {
-                        name: row.querySelector('[data-prop="name"]').value,
-                        phone: row.querySelector('[data-prop="phone"]').value,
-                        subDate: row.querySelector('[data-prop="subDate"]').value,
-                        endDate: row.querySelector('[data-prop="endDate"]').value
-                    };
-                    updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
+                    updateDoc(doc(db, `users/${userId}/customers`, docId), {
+                        name: row.querySelector('[data-prop="name"]').value, phone: row.querySelector('[data-prop="phone"]').value,
+                        subDate: row.querySelector('[data-prop="subDate"]').value, endDate: row.querySelector('[data-prop="endDate"]').value
+                    });
                 } else if (target.classList.contains('btn-cancel-customer')) {
                     displayCustomers();
                 } else if (target.classList.contains('btn-delete-customer')) {
-                    const customer = localCustomers.find(c => c.id === docId);
+                    const customer = allCustomers.find(c => c.id === docId);
                     const isExpired = new Date(customer.endDate) < new Date();
                     if (isExpired) {
-                        if (confirm("Archive this expired user? Their record will be hidden but financial data will be kept.")) {
-                            updateDoc(doc(db, `users/${userId}/customers`, docId), { archived: true });
-                        }
+                        updateDoc(doc(db, `users/${userId}/customers`, docId), { archived: true });
+                        setUndoAction(() => { updateDoc(doc(db, `users/${userId}/customers`, docId), { archived: false }); });
                     } else {
                         if (confirm("PERMANENTLY DELETE this active user? This action cannot be undone.")) {
                             deleteDoc(doc(db, `users/${userId}/customers`, docId));
+                            setUndoAction(() => { setDoc(doc(db, `users/${userId}/customers`, docId), customer); });
                         }
                     }
                 }
@@ -729,65 +806,101 @@
                 if (target.classList.contains('renew-select')) {
                     const docId = target.dataset.id;
                     const months = parseInt(target.value, 10);
+                    target.value = "";
                     if (!docId || isNaN(months)) return;
 
+                    const customer = allCustomers.find(c => c.id === docId);
+                    const originalData = { ...customer };
                     const amount = months * 10;
-                    const confirmation = confirm(`Add a ${months}-month subscription for ${formatCurrency(amount)}? This will reset the customer's subscription dates.`);
-                    
-                    if (confirmation) {
-                        const newSubDate = new Date();
-                        const newEndDate = new Date(newSubDate);
-                        newEndDate.setMonth(newEndDate.getMonth() + months);
+                    const newSubDate = new Date();
+                    const newEndDate = new Date(newSubDate); newEndDate.setMonth(newEndDate.getMonth() + months);
 
-                        const updatedData = {
-                            subDate: formatDate(newSubDate),
-                            endDate: formatDate(newEndDate),
-                            amount: amount,
-                            status: 'Paid'
-                        };
-                        updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
-                    }
-                    target.value = ""; // Reset dropdown
+                    updateDoc(doc(db, `users/${userId}/customers`, docId), {
+                        subDate: formatDate(newSubDate), endDate: formatDate(newEndDate),
+                        amount: amount, status: 'Paid', archived: false
+                    });
+                    setUndoAction(() => { updateDoc(doc(db, `users/${userId}/customers`, docId), originalData); });
                 }
-            });
-
-            customerSearchInput.addEventListener('input', e => {
-                searchQuery = e.target.value;
-                displayCustomers();
-            });
-
-            customerTableHeader.addEventListener('click', e => {
-                const newSortColumn = e.target.dataset.sort;
-                if (!newSortColumn) return;
-
-                if (sortColumn === newSortColumn) {
-                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortColumn = newSortColumn;
-                    sortDirection = 'desc';
-                }
-                displayCustomers();
             });
             
+            inventoryTableBody.addEventListener('click', e => {
+                const target = e.target; const docId = target.dataset.id; if(!docId) return;
+                
+                if(target.classList.contains('btn-edit-inventory')) {
+                     target.closest('tr').innerHTML = renderInventoryRow_Edit(localInventory.find(i => i.id === docId));
+                } else if (target.classList.contains('btn-save-inventory')) {
+                    const row = target.closest('tr');
+                    updateDoc(doc(db, `users/${userId}/inventory`, docId), {
+                        name: row.querySelector('[data-prop="name"]').value, category: row.querySelector('[data-prop="category"]').value,
+                        quantity: parseInt(row.querySelector('[data-prop="quantity"]').value, 10),
+                        purchaseCost: parseFloat(row.querySelector('[data-prop="purchaseCost"]').value),
+                        saleValue: parseFloat(row.querySelector('[data-prop="saleValue"]').value),
+                        purchaseMethod: row.querySelector('[data-prop="purchaseMethod"]').value
+                    });
+                } else if (target.classList.contains('btn-cancel-inventory')) {
+                    renderInventoryTable();
+                } else if (target.classList.contains('btn-sold')) {
+                    const item = localInventory.find(i => i.id === docId);
+                    const quantitySold = parseInt(prompt(`How many "${item.name}" units were sold? (Available: ${item.quantity})`), 10);
+                    if(isNaN(quantitySold) || quantitySold <= 0 || quantitySold > item.quantity) {
+                        alert("Invalid quantity."); return;
+                    }
+                    const finalSalePrice = parseFloat(prompt(`Confirm sale price per item:`, item.saleValue));
+                     if(isNaN(finalSalePrice) || finalSalePrice < 0) {
+                        alert("Invalid sale price."); return;
+                    }
+
+                    const batch = writeBatch(db);
+                    const newQuantity = item.quantity - quantitySold;
+                    batch.update(doc(db, `users/${userId}/inventory`, docId), { quantity: newQuantity });
+                    const incomeDocRef = doc(collection(db, `users/${userId}/income`));
+                    batch.set(incomeDocRef, {
+                        date: new Date().toISOString(), source: 'inventory',
+                        itemId: docId, itemName: item.name, quantitySold,
+                        salePrice: finalSalePrice, totalIncome: finalSalePrice * quantitySold,
+                        profit: (finalSalePrice - item.purchaseCost) * quantitySold
+                    });
+                    batch.commit();
+                    
+                    setUndoAction(() => {
+                        const undoBatch = writeBatch(db);
+                        undoBatch.update(doc(db, `users/${userId}/inventory`, docId), { quantity: item.quantity });
+                        undoBatch.delete(incomeDocRef);
+                        undoBatch.commit();
+                    });
+                }
+            });
+
+            customerSearchInput.addEventListener('input', e => { searchQuery = e.target.value; displayCustomers(); });
+            customerTableHeader.addEventListener('click', e => {
+                const newSortColumn = e.target.dataset.sort; if (!newSortColumn) return;
+                if (sortColumn === newSortColumn) { sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'; } 
+                else { sortColumn = newSortColumn; sortDirection = 'desc'; }
+                displayCustomers();
+            });
             reportMonthEl.addEventListener('change', updateMonthlyReport);
             
             const createDeleteListener = (container, collectionName) => {
                 container.addEventListener('click', e => {
                     const button = e.target.closest(`.btn-delete-${collectionName}`);
-                    if(button){
+                    if (button) {
                         const docId = button.dataset.id;
-                        if(confirm('Are you sure?')) deleteDoc(doc(db, `users/${userId}/${collectionName}`, docId));
+                        const collectionRef = collection(db, `users/${userId}/${collectionName}`);
+                        let itemToDelete;
+                        if(collectionName === 'expense'){ itemToDelete = localExpenses.find(item => item.id === docId); }
+                        else if (collectionName === 'inventory'){ itemToDelete = localInventory.find(item => item.id === docId); }
+                        
+                        if(itemToDelete) {
+                             deleteDoc(doc(collectionRef, docId));
+                             setUndoAction(() => { setDoc(doc(collectionRef, docId), itemToDelete) });
+                        }
                     }
                 });
             };
-            
             createDeleteListener(expenseTableBody, 'expense');
             createDeleteListener(inventoryTableBody, 'inventory');
 
-            subscriptionType.addEventListener('change', () => {
-                calculateEndDate();
-                updatePaymentAmount();
-            });
+            subscriptionType.addEventListener('change', () => { calculateEndDate(); updatePaymentAmount(); });
             subscriptionDate.addEventListener('change', calculateEndDate);
         }
 
@@ -810,23 +923,22 @@
             reportMonthEl.value = `${year}-${month}`;
 
             onSnapshot(collection(db, `users/${userId}/customers`), (snapshot) => {
-                const rawData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                localCustomers = rawData.filter(c => !c.archived);
-                
+                allCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localCustomers = allCustomers.filter(c => !c.archived);
                 checkOverduePayments(localCustomers);
-                displayCustomers();
-                updateSummary();
-                updateMonthlyReport();
+                displayCustomers(); updateSummary(); updateMonthlyReport();
             });
             onSnapshot(collection(db, `users/${userId}/expenses`), (snapshot) => {
                 localExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderExpensesTable();
-                updateSummary();
-                updateMonthlyReport();
+                renderExpensesTable(); updateMonthlyReport();
             });
             onSnapshot(collection(db, `users/${userId}/inventory`), (snapshot) => {
                 localInventory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderInventoryTable();
+                renderInventoryTable(); updateInventorySummary();
+            });
+             onSnapshot(collection(db, `users/${userId}/income`), (snapshot) => {
+                localIncome = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateMonthlyReport();
             });
 
             document.getElementById('subscriptionDate').value = today.toISOString().split('T')[0];
