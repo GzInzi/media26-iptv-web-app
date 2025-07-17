@@ -1,17 +1,3 @@
-Of course\! I've updated your Media26 IPTV Dashboard code with the requested features.
-
-Here are the key enhancements I've made:
-
-  * **Customer Search:** A search bar is now available at the top of the customer list to quickly find users by name, phone, or login.
-  * **Created Date Column:** The customer table now includes a "Created On" column to track when each customer was added. This column is also sortable.
-  * **Expiry Warning:** Customer rows will now highlight in a light red when their subscription is within **5 days** of expiring, making it easy to identify accounts needing attention. Expired accounts remain highlighted in a more saturated red.
-  * **Sortable Table Headers:** You can now click on table headers like "Name," "Ends On," and the new "Created On" to sort the customer list. An arrow will indicate the current sort order (ascending or descending).
-
-All existing functionality, including the edit and delete buttons, remains intact. Below is the complete, updated HTML code for your dashboard.
-
------
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,7 +99,7 @@ All existing functionality, including the edit and delete buttons, remains intac
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
         }
-
+        
         .summary-card {
             display: flex;
             align-items: center;
@@ -162,6 +148,8 @@ All existing functionality, including the edit and delete buttons, remains intac
         .btn-edit:hover { background-color: #c7d2fe; }
         .btn-save { background-color: #dcfce7; color: #16a34a; }
         .btn-save:hover { background-color: #bbf7d0; }
+        .btn-secondary { background-color: #e5e7eb; color: #4b5563; }
+        .btn-secondary:hover { background-color: #d1d5db; }
 
         .table-container { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
@@ -207,6 +195,26 @@ All existing functionality, including the edit and delete buttons, remains intac
             border-top-color: var(--text-primary);
             opacity: 1;
         }
+        
+        hr.page-breaker {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 40px 0;
+        }
+        
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        #reportMonth {
+            font-size: 1em;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
 
     </style>
 </head>
@@ -239,25 +247,34 @@ All existing functionality, including the edit and delete buttons, remains intac
                         <div class="label">Expired Users</div>
                     </div>
                 </div>
+            </div>
+
+            <hr class="page-breaker">
+
+            <div class="report-header">
+                <h2>Monthly Report</h2>
+                <input type="month" id="reportMonth">
+            </div>
+            <div class="grid-container">
                 <div class="summary-card" style="background: var(--accent-color);">
                     <div class="icon">💰</div>
                     <div>
-                        <div class="value" id="totalIncome">$0.00</div>
-                        <div class="label">Total Income</div>
+                        <div class="value" id="reportIncome">$0.00</div>
+                        <div class="label">Income</div>
                     </div>
                 </div>
                  <div class="summary-card" style="background: var(--warning-color);">
                     <div class="icon">💸</div>
                     <div>
-                        <div class="value" id="totalExpenses">-$0.00</div>
-                        <div class="label">Total Expenses</div>
+                        <div class="value" id="reportExpenses">-$0.00</div>
+                        <div class="label">Expenses</div>
                     </div>
                 </div>
                  <div class="summary-card" style="background: var(--info-color);">
-                    <div class="icon">📈</div>
+                    <div class="icon">📊</div>
                     <div>
-                        <div class="value" id="netProfit">$0.00</div>
-                        <div class="label">Net Profit</div>
+                        <div class="value" id="reportProfit">$0.00</div>
+                        <div class="label">Profit</div>
                     </div>
                 </div>
             </div>
@@ -279,7 +296,7 @@ All existing functionality, including the edit and delete buttons, remains intac
                             <select id="subscriptionType" name="subscriptionType" required>
                                 <option value="1">1 Month</option><option value="2">2 Months</option><option value="3">3 Months</option><option value="4">4 Months</option><option value="5">5 Months</option>
                                 <option value="6" selected>6 Months</option><option value="7">7 Months</option><option value="8">8 Months</option><option value="9">9 Months</option><option value="10">10 Months</option>
-                                <option value="11">11 Months</option><option value="12">12 Months</option><option value="trial">Trial (7 days)</option>
+                                <option value="11">11 Months</option><option value="12">12 Months</option><option value="trial">Trial (2 days)</option>
                             </select>
                         </div>
                         <div class="form-group"><label for="subscriptionDate">Subscription Date</label><input type="date" id="subscriptionDate" name="subscriptionDate" required></div>
@@ -303,7 +320,6 @@ All existing functionality, including the edit and delete buttons, remains intac
                                 <th data-sort="name">Name</th>
                                 <th data-sort="phone">Phone</th>
                                 <th data-sort="login">Login</th>
-                                <th data-sort="createdDate">Created On</th>
                                 <th data-sort="subDate">Started On</th>
                                 <th data-sort="endDate">Ends On</th>
                                 <th data-sort="daysLeft">Days Left</th>
@@ -378,9 +394,12 @@ All existing functionality, including the edit and delete buttons, remains intac
         const inventoryTableBody = document.getElementById('inventoryTableBody');
         const activeUsersEl = document.getElementById('activeUsers');
         const expiredUsersEl = document.getElementById('expiredUsers');
-        const totalIncomeEl = document.getElementById('totalIncome');
-        const totalExpensesEl = document.getElementById('totalExpenses');
-        const netProfitEl = document.getElementById('netProfit');
+        
+        const reportMonthEl = document.getElementById('reportMonth');
+        const reportIncomeEl = document.getElementById('reportIncome');
+        const reportExpensesEl = document.getElementById('reportExpenses');
+        const reportProfitEl = document.getElementById('reportProfit');
+
         const subscriptionType = document.getElementById('subscriptionType');
         const subscriptionDate = document.getElementById('subscriptionDate');
         const subscriptionEndingDate = document.getElementById('subscriptionEndingDate');
@@ -390,9 +409,10 @@ All existing functionality, including the edit and delete buttons, remains intac
         let localCustomers = [];
         let localExpenses = [];
         let localInventory = [];
+        let alertedCustomers = new Set();
         let userId = "gL1KLYx6NqdokNaHoY3zhUvoRPo1";
         let db;
-        let sortColumn = 'createdDate';
+        let sortColumn = 'subDate';
         let sortDirection = 'desc';
         let searchQuery = '';
 
@@ -424,7 +444,7 @@ All existing functionality, including the edit and delete buttons, remains intac
             const type = subscriptionType.value;
             if (!startDate.getTime() || !subscriptionDate.value) return;
             if (type === 'trial') {
-                startDate.setDate(startDate.getDate() + 8); // To account for the start day
+                startDate.setDate(startDate.getDate() + 2); // 2-day trial
             } else {
                 startDate.setMonth(startDate.getMonth() + parseInt(type, 10));
             }
@@ -443,7 +463,6 @@ All existing functionality, including the edit and delete buttons, remains intac
             const status = customer.daysLeft < 0 ? 'Expired' : `${customer.daysLeft} days`;
             return `
                 <td>${customer.name}</td><td>${customer.phone || '-'}</td><td>${customer.login}</td>
-                <td>${formatDisplayDate(customer.createdDate)}</td>
                 <td>${formatDisplayDate(customer.subDate)}</td><td>${formatDisplayDate(customer.endDate)}</td>
                 <td>${status}</td>
                 <td class="actions-cell">
@@ -456,26 +475,24 @@ All existing functionality, including the edit and delete buttons, remains intac
                 <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
                 <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
                 <td><input type="text" data-prop="login" value="${customer.login || ''}" readonly></td>
-                <td>${formatDisplayDate(customer.createdDate)}</td>
                 <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
                 <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
                 <td>...</td>
                 <td class="actions-cell">
                     <button class="btn btn-save btn-save-customer" data-id="${customer.id}">Save</button>
+                    <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
                 </td>`;
         };
 
         const displayCustomers = () => {
             const today = new Date(); today.setHours(0, 0, 0, 0);
 
-            // 1. Process: Calculate daysLeft for each customer
             const processedCustomers = localCustomers.map(c => {
                 const endDate = new Date(c.endDate);
                 const daysLeft = Math.ceil((endDate - today) / (1000 * 3600 * 24));
                 return { ...c, daysLeft };
             });
 
-            // 2. Filter: Apply search query
             const lowerCaseQuery = searchQuery.toLowerCase();
             const filteredCustomers = !searchQuery ? processedCustomers : processedCustomers.filter(c =>
                 c.name?.toLowerCase().includes(lowerCaseQuery) ||
@@ -483,37 +500,28 @@ All existing functionality, including the edit and delete buttons, remains intac
                 c.login?.toLowerCase().includes(lowerCaseQuery)
             );
 
-            // 3. Sort: Apply sorting
             filteredCustomers.sort((a, b) => {
                 const valA = a[sortColumn];
                 const valB = b[sortColumn];
 
                 let comparison = 0;
-                if (valA > valB) {
-                    comparison = 1;
-                } else if (valA < valB) {
-                    comparison = -1;
-                }
+                if (valA > valB) { comparison = 1; } 
+                else if (valA < valB) { comparison = -1; }
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
 
-            // 4. Render Table
             customerTableBody.innerHTML = '';
             filteredCustomers.forEach(customer => {
                 const row = document.createElement('tr');
                 row.dataset.id = customer.id;
                 
-                if (customer.daysLeft < 0) {
-                    row.classList.add('row-expired');
-                } else if (customer.daysLeft < 5) {
-                    row.classList.add('row-expires-soon');
-                }
+                if (customer.daysLeft < 0) { row.classList.add('row-expired'); } 
+                else if (customer.daysLeft < 5) { row.classList.add('row-expires-soon'); }
 
                 row.innerHTML = renderRow_ViewMode(customer);
                 customerTableBody.appendChild(row);
             });
             
-            // 5. Update sort indicators in header
             customerTableHeader.querySelectorAll('th[data-sort]').forEach(th => {
                 th.classList.remove('sort-asc', 'sort-desc');
                 if (th.dataset.sort === sortColumn) {
@@ -546,20 +554,62 @@ All existing functionality, including the edit and delete buttons, remains intac
             });
         };
 
+        const updateMonthlyReport = () => {
+            const [year, month] = reportMonthEl.value.split('-').map(Number);
+            const selectedMonth = month - 1; // JS months are 0-indexed
+
+            const monthlyIncome = localCustomers.reduce((sum, c) => {
+                const subDate = new Date(c.subDate);
+                if (c.status === 'Paid' && subDate.getFullYear() === year && subDate.getMonth() === selectedMonth) {
+                    return sum + (c.amount || 0);
+                }
+                return sum;
+            }, 0);
+
+            const monthlyExpenses = localExpenses.reduce((sum, e) => {
+                const expenseDate = new Date(e.date);
+                if (expenseDate.getFullYear() === year && expenseDate.getMonth() === selectedMonth) {
+                    return sum + (e.amount || 0);
+                }
+                return sum;
+            }, 0);
+
+            const monthlyProfit = monthlyIncome - monthlyExpenses;
+
+            reportIncomeEl.textContent = formatCurrency(monthlyIncome);
+            reportExpensesEl.textContent = `-${formatCurrency(monthlyExpenses)}`;
+            reportProfitEl.textContent = formatCurrency(monthlyProfit);
+        };
+
         const updateSummary = () => {
-            let activeCount = 0, expiredCount = 0, totalIncome = 0;
-            const today = new Date(); today.setHours(0,0,0,0);
-            localCustomers.forEach(c => {
-                new Date(c.endDate) < today ? expiredCount++ : activeCount++;
-                if (c.status === 'Paid') totalIncome += (c.amount || 0);
-            });
-            const totalExp = localExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+            let activeCount = 0;
+            let expiredCount = 0;
+            const todayStart = new Date(); 
+            todayStart.setHours(0,0,0,0);
             
+            localCustomers.forEach(c => {
+                new Date(c.endDate) < todayStart ? expiredCount++ : activeCount++;
+            });
+
             activeUsersEl.textContent = activeCount;
             expiredUsersEl.textContent = expiredCount;
-            totalIncomeEl.textContent = formatCurrency(totalIncome);
-            totalExpensesEl.textContent = `-${formatCurrency(totalExp)}`;
-            netProfitEl.textContent = formatCurrency(totalIncome - totalExp);
+        };
+        
+        const checkOverduePayments = (customers) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            customers.forEach(customer => {
+                if (customer.status === 'Unpaid' && !alertedCustomers.has(customer.id)) {
+                    const subDate = new Date(customer.subDate);
+                    const daysSinceSub = Math.floor((today - subDate) / (1000 * 3600 * 24));
+
+                    if (daysSinceSub >= 2) {
+                        alert(`Payment Alert: Payment for customer '${customer.name}' has been pending for 2 or more days.`);
+                        alertedCustomers.add(customer.id);
+                    }
+                }
+            });
         };
 
         function setupEventListeners() {
@@ -593,8 +643,7 @@ All existing functionality, including the edit and delete buttons, remains intac
                     subDate: formData.get('subscriptionDate'),
                     endDate: formData.get('subscriptionEndingDate'),
                     status: formData.get('paymentStatus'),
-                    amount: parseFloat(formData.get('paymentAmount')),
-                    createdDate: new Date().toISOString()
+                    amount: parseFloat(formData.get('paymentAmount'))
                 };
                 addDoc(collection(db, `users/${userId}/customers`), newCustomer);
                 customerForm.reset();
@@ -642,6 +691,8 @@ All existing functionality, including the edit and delete buttons, remains intac
                         endDate: row.querySelector('[data-prop="endDate"]').value
                     };
                     updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
+                } else if (e.target.classList.contains('btn-cancel-customer')) {
+                    displayCustomers();
                 } else if (e.target.classList.contains('btn-delete-customer')) {
                     if (confirm('Are you sure?')) deleteDoc(doc(db, `users/${userId}/customers`, docId));
                 }
@@ -664,6 +715,8 @@ All existing functionality, including the edit and delete buttons, remains intac
                 }
                 displayCustomers();
             });
+            
+            reportMonthEl.addEventListener('change', updateMonthlyReport);
             
             const createDeleteListener = (container, collectionName) => {
                 container.addEventListener('click', e => {
@@ -698,22 +751,29 @@ All existing functionality, including the edit and delete buttons, remains intac
             db = getFirestore(app);
             setupEventListeners();
             
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            reportMonthEl.value = `${year}-${month}`;
+
             onSnapshot(collection(db, `users/${userId}/customers`), (snapshot) => {
                 localCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                checkOverduePayments(localCustomers);
                 displayCustomers();
                 updateSummary();
+                updateMonthlyReport();
             });
             onSnapshot(collection(db, `users/${userId}/expenses`), (snapshot) => {
                 localExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderExpensesTable();
                 updateSummary();
+                updateMonthlyReport();
             });
             onSnapshot(collection(db, `users/${userId}/inventory`), (snapshot) => {
                 localInventory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderInventoryTable();
             });
 
-            const today = new Date();
             document.getElementById('subscriptionDate').value = today.toISOString().split('T')[0];
             document.getElementById('expenseDate').value = today.toISOString().split('T')[0];
             calculateEndDate();
@@ -724,4 +784,3 @@ All existing functionality, including the edit and delete buttons, remains intac
     </script>
 </body>
 </html>
-```
