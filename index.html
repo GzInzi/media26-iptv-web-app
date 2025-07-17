@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,14 +87,21 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f3f5;
+            padding: 10px;
+            border-radius: 0.375rem;
+            margin-bottom: 10px;
         }
-        .summary-item:last-of-type { border-bottom: none; }
-        .summary-item span:first-child { color: var(--text-secondary); font-size: 0.9em; }
-        .summary-item span:last-child { font-weight: 600; font-size: 1.1em; }
-        #netProfit.net-profit { color: var(--success-color); }
-        #netProfit.total-expenses, #totalExpenses { color: var(--danger-color); }
+        .summary-item:last-of-type { margin-bottom: 0; }
+        .summary-item span:first-child { font-size: 0.8em; }
+        .summary-item span:last-child { font-weight: 700; font-size: 1em; }
+
+        #activeUsers { color: #0a58ca; }
+        #expiredUsers { color: #dc3545; }
+        #customerCount { color: #6f42c1; }
+        #totalIncome { color: #198754; }
+        #totalExpenses { color: #dc3545; }
+        #netProfit.net-profit { color: #198754; }
+        #netProfit.total-expenses { color: #dc3545; }
         
         .form-group { display: flex; flex-direction: column; gap: 8px; }
         .form-group.full-width { grid-column: 1 / -1; }
@@ -252,19 +260,16 @@
             <div class="card">
                 <h3>Summary Report</h3>
                 <div class="summary-filter"><select id="summaryMonth"></select><select id="summaryYear"></select></div>
-                <div class="summary-item"><span>Active Users</span><span id="activeUsers">0</span></div>
-                <div class="summary-item"><span>Expired Users</span><span id="expiredUsers">0</span></div>
-                <div class="summary-item"><span>Customers This Month</span><span id="customerCount">0</span></div>
-                <div class="summary-item"><span>Income This Month</span><span id="totalIncome">$0.00</span></div>
-                <div class="summary-item"><span>Expenses This Month</span><span id="totalExpenses">-$0.00</span></div>
-                <div class="summary-item"><span>Net Profit This Month</span><span id="netProfit">$0.00</span></div>
+                <div class="summary-item" style="background-color: #e0e7ff;"><span>Active Users</span><span id="activeUsers">0</span></div>
+                <div class="summary-item" style="background-color: #fee2e2;"><span>Expired Users</span><span id="expiredUsers">0</span></div>
+                <div class="summary-item" style="background-color: #f3e8ff;"><span>Customers This Month</span><span id="customerCount">0</span></div>
+                <div class="summary-item" style="background-color: #dcfce7;"><span>Income This Month</span><span id="totalIncome">$0.00</span></div>
+                <div class="summary-item" style="background-color: #ffe4e6;"><span>Expenses This Month</span><span id="totalExpenses">-$0.00</span></div>
+                <div class="summary-item" style="background-color: #d1fae5;"><span>Net Profit This Month</span><span id="netProfit">$0.00</span></div>
             </div>
             <div class="card">
                 <h3>Expense Management</h3>
-                <button id="add-expense-btn" class="btn" style="background-color: var(--success-color); color: #fff; width: 100%; padding: 12px;">Add New Expense</button>
-            </div>
-            <div class="card">
-                <h3>Expense List</h3>
+                <button id="add-expense-btn" class="btn" style="background-color: var(--success-color); color: #fff; width: 100%; padding: 12px; margin-bottom: 15px;">Add New Expense</button>
                 <div class="table-container" style="max-height: 280px; overflow-y: auto;">
                     <table>
                         <thead><tr><th>Description</th><th>Amount</th><th>Date</th><th>Actions</th></tr></thead>
@@ -732,7 +737,7 @@
                 addDoc(collection(db, `users/${userId}/expenses`), newExpense).then(() => { 
                     expenseForm.reset(); 
                     initializeFormDefaults();
-                    expenseModal.style.display = 'none'; // Close modal on success
+                    expenseModal.style.display = 'none';
                 }).catch(error => console.error("Error adding expense:", error)); 
             });
             
@@ -800,3 +805,4 @@
     </script>
 </body>
 </html>
+```
