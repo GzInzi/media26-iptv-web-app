@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -215,6 +216,11 @@
             border-radius: 6px;
             border: 1px solid var(--border-color);
         }
+        
+        .renew-select {
+            padding: 6px 8px;
+            font-size: 0.9em;
+        }
 
     </style>
 </head>
@@ -323,6 +329,7 @@
                                 <th data-sort="subDate">Started On</th>
                                 <th data-sort="endDate">Ends On</th>
                                 <th data-sort="daysLeft">Days Left</th>
+                                <th>Renew</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -425,11 +432,11 @@
             const options = { year: 'numeric', month: 'short', day: 'numeric' };
             return date.toLocaleDateString('en-US', options);
         };
-        const formatDate = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-            return date.toISOString().split('T')[0];
+        const formatDate = (date) => {
+            if (!date) return '';
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+            return d.toISOString().split('T')[0];
         };
         const generateCredentials = (fullName) => {
             if (!fullName) { return { login: '', password: '' }; }
@@ -461,10 +468,16 @@
         // --- RENDER FUNCTIONS ---
         const renderRow_ViewMode = (customer) => {
             const status = customer.daysLeft < 0 ? 'Expired' : `${customer.daysLeft} days`;
+            let renewOptions = '<option value="">Add Sub...</option>';
+            for (let i = 1; i <= 12; i++) {
+                renewOptions += `<option value="${i}">${i} Month${i > 1 ? 's' : ''}</option>`;
+            }
+
             return `
                 <td>${customer.name}</td><td>${customer.phone || '-'}</td><td>${customer.login}</td>
                 <td>${formatDisplayDate(customer.subDate)}</td><td>${formatDisplayDate(customer.endDate)}</td>
                 <td>${status}</td>
+                <td><select class="renew-select" data-id="${customer.id}">${renewOptions}</select></td>
                 <td class="actions-cell">
                     <button class="btn btn-edit" data-id="${customer.id}">Edit</button>
                     <button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button>
@@ -478,6 +491,7 @@
                 <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
                 <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
                 <td>...</td>
+                <td>-</td>
                 <td class="actions-cell">
                     <button class="btn btn-save btn-save-customer" data-id="${customer.id}">Save</button>
                     <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
@@ -555,6 +569,7 @@
         };
 
         const updateMonthlyReport = () => {
+            if(!reportMonthEl.value) return;
             const [year, month] = reportMonthEl.value.split('-').map(Number);
             const selectedMonth = month - 1; // JS months are 0-indexed
 
@@ -676,14 +691,15 @@
             });
             
             customerTableBody.addEventListener('click', e => {
-                const docId = e.target.dataset.id;
+                const target = e.target;
+                const docId = target.dataset.id;
                 if(!docId) return;
                 
-                if (e.target.classList.contains('btn-edit')) {
+                if (target.classList.contains('btn-edit')) {
                     const customer = localCustomers.find(c => c.id === docId);
-                    e.target.closest('tr').innerHTML = renderRow_EditMode(customer);
-                } else if (e.target.classList.contains('btn-save-customer')) {
-                    const row = e.target.closest('tr');
+                    target.closest('tr').innerHTML = renderRow_EditMode(customer);
+                } else if (target.classList.contains('btn-save-customer')) {
+                    const row = target.closest('tr');
                     const updatedData = {
                         name: row.querySelector('[data-prop="name"]').value,
                         phone: row.querySelector('[data-prop="phone"]').value,
@@ -691,10 +707,47 @@
                         endDate: row.querySelector('[data-prop="endDate"]').value
                     };
                     updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
-                } else if (e.target.classList.contains('btn-cancel-customer')) {
+                } else if (target.classList.contains('btn-cancel-customer')) {
                     displayCustomers();
-                } else if (e.target.classList.contains('btn-delete-customer')) {
-                    if (confirm('Are you sure?')) deleteDoc(doc(db, `users/${userId}/customers`, docId));
+                } else if (target.classList.contains('btn-delete-customer')) {
+                    const customer = localCustomers.find(c => c.id === docId);
+                    const isExpired = new Date(customer.endDate) < new Date();
+                    if (isExpired) {
+                        if (confirm("Archive this expired user? Their record will be hidden but financial data will be kept.")) {
+                            updateDoc(doc(db, `users/${userId}/customers`, docId), { archived: true });
+                        }
+                    } else {
+                        if (confirm("PERMANENTLY DELETE this active user? This action cannot be undone.")) {
+                            deleteDoc(doc(db, `users/${userId}/customers`, docId));
+                        }
+                    }
+                }
+            });
+
+            customerTableBody.addEventListener('change', e => {
+                const target = e.target;
+                if (target.classList.contains('renew-select')) {
+                    const docId = target.dataset.id;
+                    const months = parseInt(target.value, 10);
+                    if (!docId || isNaN(months)) return;
+
+                    const amount = months * 10;
+                    const confirmation = confirm(`Add a ${months}-month subscription for ${formatCurrency(amount)}? This will reset the customer's subscription dates.`);
+                    
+                    if (confirmation) {
+                        const newSubDate = new Date();
+                        const newEndDate = new Date(newSubDate);
+                        newEndDate.setMonth(newEndDate.getMonth() + months);
+
+                        const updatedData = {
+                            subDate: formatDate(newSubDate),
+                            endDate: formatDate(newEndDate),
+                            amount: amount,
+                            status: 'Paid'
+                        };
+                        updateDoc(doc(db, `users/${userId}/customers`, docId), updatedData);
+                    }
+                    target.value = ""; // Reset dropdown
                 }
             });
 
@@ -757,7 +810,9 @@
             reportMonthEl.value = `${year}-${month}`;
 
             onSnapshot(collection(db, `users/${userId}/customers`), (snapshot) => {
-                localCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const rawData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localCustomers = rawData.filter(c => !c.archived);
+                
                 checkOverduePayments(localCustomers);
                 displayCustomers();
                 updateSummary();
@@ -784,3 +839,4 @@
     </script>
 </body>
 </html>
+```
