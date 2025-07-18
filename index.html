@@ -52,6 +52,7 @@
             color: var(--text-secondary);
             border-bottom: 3px solid transparent;
             transition: all 0.2s ease-in-out;
+            white-space: nowrap;
         }
         .nav-tab:hover {
             color: var(--accent-color);
@@ -122,6 +123,7 @@
         }
         
         .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .form-actions { display: flex; gap: 10px; align-items: center; }
         .full-width { grid-column: 1 / -1; }
         label { font-weight: 500; font-size: 0.9em; color: var(--text-secondary); }
         input, select, textarea {
@@ -290,6 +292,42 @@
             font-size: 1em;
             font-weight: 500;
         }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            .top-nav {
+                padding: 0 20px;
+            }
+            .nav-tab {
+                padding: 15px 10px;
+                font-size: 0.85em;
+            }
+            #undo-button {
+                font-size: 0.8em;
+                padding: 8px 10px;
+            }
+            .grid-container, 
+            #inventoryForm.grid-container {
+                grid-template-columns: 1fr;
+            }
+            .form-group {
+                grid-column: 1 / -1 !important;
+            }
+            th, td {
+                padding: 10px 8px;
+                font-size: 0.9em;
+            }
+            .report-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; }
+        }
     </style>
 </head>
 <body>
@@ -374,9 +412,8 @@
         </div>
 
         <div id="customers-tab-content" class="tab-content">
-            <h1>Customer Management</h1>
             <div class="card">
-                <h2>Create New Customer</h2>
+                <h2 id="customer-form-title">Create New Customer</h2>
                 <form id="newCustomerForm">
                      <div class="grid-container">
                         <div class="form-group"><label for="customerName">Customer Name</label><input type="text" id="customerName" name="customerName" required></div>
@@ -394,10 +431,18 @@
                         </div>
                         <div class="form-group"><label for="subscriptionDate">Subscription Date</label><input type="date" id="subscriptionDate" name="subscriptionDate" required></div>
                         <div class="form-group"><label for="subscriptionEndingDate">Subscription Ending Date</label><input type="text" id="subscriptionEndingDate" name="subscriptionEndingDate" readonly></div>
-                        <div class="form-group"><label for="paymentStatus">Payment Status</label><select id="paymentStatus" name="paymentStatus" required><option>Paid</option><option>Unpaid</option></select></div>
+                        <div class="form-group"><label for="paymentStatus">Payment Status</label>
+                            <select id="paymentStatus" name="paymentStatus" required>
+                                <option>Paid</option>
+                                <option selected>Unpaid</option>
+                            </select>
+                        </div>
                         <div class="form-group"><label for="paymentAmount">Payment Amount ($)</label><input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" required></div>
                         <div class="form-group full-width"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
-                        <div class="form-group full-width"><button type="submit" class="btn btn-primary">Add New Customer</button></div>
+                        <div class="form-group full-width form-actions">
+                            <button type="submit" id="customer-form-submit-button" class="btn btn-primary">Add New Customer</button>
+                            <button type="button" id="customer-form-cancel-button" class="btn btn-secondary" style="display: none;">Cancel</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -460,7 +505,7 @@
             </div>
             <div class="card">
                 <h2>Add Inventory Item</h2>
-                <form id="inventoryForm" class="grid-container" style="grid-template-columns: 1fr 1fr 1fr 1fr 1fr; align-items: flex-end;">
+                <form id="inventoryForm" class="grid-container">
                     <div class="form-group"><label for="itemName">Item Name</label><input type="text" id="itemName" name="itemName" placeholder="e.g., IPTV Box" required></div>
                     <div class="form-group"><label for="itemCategory">Category</label>
                         <select id="itemCategory" name="itemCategory">
@@ -475,7 +520,7 @@
                     </div>
                     <div class="form-group"><label for="itemCost">Purchase Cost/Item ($)</label><input type="number" id="itemCost" name="itemCost" min="0" step="0.01" required></div>
                     <div class="form-group"><label for="itemSaleValue">Sale Value/Item ($)</label><input type="number" id="itemSaleValue" name="itemSaleValue" min="0" step="0.01" required></div>
-                    <div class="form-group" style="grid-column: 5 / -1;"><button type="submit" class="btn btn-primary">Add to Inventory</button></div>
+                    <div class="form-group"><button type="submit" class="btn btn-primary">Add to Inventory</button></div>
                 </form>
             </div>
             <div class="card">
@@ -509,6 +554,9 @@
         const navTabsContainer = document.querySelector('.nav-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
         const customerForm = document.getElementById('newCustomerForm');
+        const customerFormTitle = document.getElementById('customer-form-title');
+        const customerFormSubmitButton = document.getElementById('customer-form-submit-button');
+        const customerFormCancelButton = document.getElementById('customer-form-cancel-button');
         const expenseForm = document.getElementById('expenseForm');
         const inventoryForm = document.getElementById('inventoryForm');
         const customerTableBody = document.getElementById('customerTableBody');
@@ -548,6 +596,7 @@
         let sortDirection = 'desc';
         let searchQuery = '';
         let lastAction = null;
+        let editingCustomerId = null;
 
         // --- UNDO FUNCTIONALITY ---
         const setUndoAction = (undoCallback) => {
@@ -622,21 +671,6 @@
                 <td class="actions-cell">
                     <button class="btn btn-edit" data-id="${customer.id}">Edit</button>
                     <button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button>
-                </td>`;
-        };
-        const renderRow_EditMode = (customer) => {
-            return `
-                <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
-                <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
-                <td><input type="text" data-prop="login" value="${customer.login || ''}" readonly></td>
-                <td>...</td>
-                <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
-                <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
-                <td>...</td>
-                <td>-</td>
-                <td class="actions-cell">
-                    <button class="btn btn-save btn-save-customer" data-id="${customer.id}">Save</button>
-                    <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
                 </td>`;
         };
         
@@ -826,6 +860,15 @@
             customerDetailsModal.classList.add('modal-open');
         };
 
+        const resetCustomerForm = () => {
+            editingCustomerId = null;
+            customerForm.reset();
+            customerFormTitle.textContent = 'Create New Customer';
+            customerFormSubmitButton.textContent = 'Add New Customer';
+            customerFormCancelButton.style.display = 'none';
+            document.querySelectorAll('#subscriptionType, #subscriptionDate').forEach(el => el.disabled = false);
+        };
+
         function setupEventListeners() {
             navTabsContainer.addEventListener('click', (e) => {
                 if (e.target.matches('.nav-tab')) {
@@ -839,19 +882,25 @@
             customerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(customerForm);
-                addDoc(collection(db, `users/${userId}/customers`), {
+                const data = {
                     name: formData.get('customerName'), phone: formData.get('phone'), login: formData.get('login'),
                     password: formData.get('password'), macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
                     endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
-                    amount: parseFloat(formData.get('paymentAmount')), archived: false
-                });
-                customerForm.reset();
-                document.getElementById('subscriptionDate').value = new Date().toISOString().split('T')[0];
-                updatePaymentAmount();
-                calculateEndDate();
+                    amount: parseFloat(formData.get('paymentAmount')), archived: false, specialNote: formData.get('specialNote')
+                };
+
+                if (editingCustomerId) {
+                    updateDoc(doc(db, `users/${userId}/customers`, editingCustomerId), data);
+                } else {
+                    addDoc(collection(db, `users/${userId}/customers`), data);
+                }
+                resetCustomerForm();
             });
+
+            customerFormCancelButton.addEventListener('click', resetCustomerForm);
+
             customerForm.addEventListener('input', (e) => {
-                if(e.target.id === 'customerName') {
+                if(e.target.id === 'customerName' && !editingCustomerId) {
                     const { login, password } = generateCredentials(e.target.value);
                     document.getElementById('login').value = login;
                     document.getElementById('password').value = password;
@@ -894,15 +943,27 @@
                 if (target.matches('td')) {
                     showCustomerDetails(docId);
                 } else if (target.classList.contains('btn-edit')) {
-                    row.innerHTML = renderRow_EditMode(localCustomers.find(c => c.id === docId));
-                } else if (target.classList.contains('btn-save-customer')) {
-                    const customerRow = target.closest('tr');
-                    updateDoc(doc(db, `users/${userId}/customers`, docId), {
-                        name: customerRow.querySelector('[data-prop="name"]').value, phone: customerRow.querySelector('[data-prop="phone"]').value,
-                        subDate: customerRow.querySelector('[data-prop="subDate"]').value, endDate: customerRow.querySelector('[data-prop="endDate"]').value
-                    });
-                } else if (target.classList.contains('btn-cancel-customer')) {
-                    displayCustomers();
+                    editingCustomerId = docId;
+                    const customer = allCustomers.find(c => c.id === docId);
+                    
+                    customerForm.customerName.value = customer.name;
+                    customerForm.phone.value = customer.phone || '';
+                    customerForm.login.value = customer.login;
+                    customerForm.password.value = customer.password;
+                    customerForm.macAddress.value = customer.macAddress || '';
+                    customerForm.subscriptionDate.value = customer.subDate;
+                    customerForm.subscriptionEndingDate.value = customer.endDate;
+                    customerForm.paymentStatus.value = customer.status;
+                    customerForm.paymentAmount.value = customer.amount;
+                    customerForm.specialNote.value = customer.specialNote || '';
+                    document.querySelectorAll('#subscriptionType').forEach(el => el.disabled = true);
+
+                    customerFormTitle.textContent = 'Edit Customer';
+                    customerFormSubmitButton.textContent = 'Update Customer';
+                    customerFormCancelButton.style.display = 'inline-block';
+                    
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
                 } else if (target.classList.contains('btn-delete-customer')) {
                     const customer = allCustomers.find(c => c.id === docId);
                     const isExpired = new Date(customer.endDate) < new Date();
