@@ -571,7 +571,7 @@
                                 <th data-sort="subDate">Started On</th>
                                 <th data-sort="endDate">Ends On</th>
                                 <th data-sort="daysLeft">Days Left</th>
-                                <th>Payment Status</th>
+                                <th data-sort="status">Payment Status</th>
                                 <th>Renew</th>
                                 <th>Actions</th>
                             </tr>
@@ -880,6 +880,25 @@
                     <button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button>
                 </td>`;
         };
+        const renderRow_EditMode = (customer) => {
+            return `
+                <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
+                <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
+                <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
+                <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
+                <td>...</td>
+                <td>
+                    <select data-prop="status">
+                        <option ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                        <option ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+                    </select>
+                </td>
+                <td>-</td>
+                <td class="actions-cell">
+                    <button class="btn btn-save btn-save-customer" data-id="${customer.id}">Save</button>
+                    <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
+                </td>`;
+        };
         
         const renderInventoryRow_View = (item) => {
             const totalValue = (Number(item.quantity) || 0) * (Number(item.purchaseCost) || 0);
@@ -1076,34 +1095,34 @@
             customerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const formData = new FormData(customerForm);
-                const customerData = {
-                    name: formData.get('customerName').trim(), phone: formData.get('phone'), login: formData.get('login'),
-                    password: formData.get('password'), macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
-                    endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
-                    amount: parseFloat(formData.get('paymentAmount')), specialNote: formData.get('specialNote'),
-                };
-
+                
                 if(currentlyEditingCustomerId) {
-                    // UPDATE
+                     const customerData = {
+                        name: formData.get('customerName').trim(), phone: formData.get('phone'), 
+                        macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
+                        endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
+                        amount: parseFloat(formData.get('paymentAmount')), specialNote: formData.get('specialNote'),
+                    };
                     await updateDoc(doc(db, `users/${userId}/customers`, currentlyEditingCustomerId), customerData);
                     showConfirmationToast(`Customer "${customerData.name}" has been updated.`);
                     resetCustomerForm();
                 } else {
-                    // CREATE
-                    if (!customerData.name) {
-                        alert("Customer name cannot be empty."); return;
-                    }
-                    const newNameLower = customerData.name.toLowerCase();
+                    const newNameInput = formData.get('customerName').trim();
+                    if (!newNameInput) { alert("Customer name cannot be empty."); return; }
+                    const newNameLower = newNameInput.toLowerCase();
                     const isDuplicate = allCustomers.some(c => c.name.trim().toLowerCase() === newNameLower);
+                    if (isDuplicate) { alert(`Error: A customer named "${newNameInput}" already exists.`); return; }
 
-                    if (isDuplicate) {
-                        alert(`Error: A customer named "${customerData.name}" already exists.`); return;
-                    }
-                    customerData.archived = false;
-                    await addDoc(collection(db, `users/${userId}/customers`), customerData);
+                    const newCustomer = {
+                        name: newNameInput, phone: formData.get('phone'), login: formData.get('login'),
+                        password: formData.get('password'), macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
+                        endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
+                        amount: parseFloat(formData.get('paymentAmount')), archived: false, specialNote: formData.get('specialNote')
+                    };
+                    await addDoc(collection(db, `users/${userId}/customers`), newCustomer);
                     const subType = formData.get('subscriptionType');
                     const subText = subType === 'trial' ? 'a trial' : `a ${subType}-month`;
-                    showConfirmationToast(`Customer "${customerData.name}" created with ${subText} subscription.`);
+                    showConfirmationToast(`Customer "${newCustomer.name}" created with ${subText} subscription.`);
                     resetCustomerForm();
                 }
             });
