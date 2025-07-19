@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -258,6 +259,11 @@
             padding: 20px;
             border-radius: 8px;
             color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+        .summary-card:hover {
+            transform: translateY(-4px);
         }
         .summary-card .icon {
             font-size: 1.5em; 
@@ -343,6 +349,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         #customerSearch {
             padding: 8px 12px;
@@ -478,19 +486,33 @@
     <main class="main-content app-hidden">
         <div id="dashboard-tab-content" class="tab-content active">
             <h1>Dashboard</h1>
-            <div class="grid-container">
-                <div class="summary-card" style="background: var(--success-color);">
+            <div id="dashboard-grid" class="grid-container">
+                <div class="summary-card" data-filter="active" style="background: var(--success-color);">
                     <div class="icon">👥</div>
                     <div>
                         <div class="value" id="activeUsers">0</div>
                         <div class="label">Active Users</div>
                     </div>
                 </div>
-                <div class="summary-card" style="background: var(--danger-color);">
+                <div class="summary-card" data-filter="expired" style="background: var(--danger-color);">
                     <div class="icon">🚫</div>
                     <div>
                         <div class="value" id="expiredUsers">0</div>
                         <div class="label">Expired Users</div>
+                    </div>
+                </div>
+                <div class="summary-card" data-filter="unpaid" style="background: var(--warning-color);">
+                    <div class="icon">⚠️</div>
+                    <div>
+                        <div class="value" id="unpaidCount">0</div>
+                        <div class="label">Unpaid Customers</div>
+                    </div>
+                </div>
+                <div class="summary-card" data-filter="unpaid" style="background: #e11d48;">
+                    <div class="icon">💵</div>
+                    <div>
+                        <div class="value" id="unpaidValue">$0.00</div>
+                        <div class="label">Unpaid Value</div>
                     </div>
                 </div>
             </div>
@@ -550,6 +572,26 @@
                         <div class="form-group"><label for="paymentStatus">Payment Status</label><select id="paymentStatus" name="paymentStatus" required><option>Paid</option><option>Unpaid</option></select></div>
                         <div class="form-group"><label for="paymentAmount">Payment Amount ($)</label><input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" required></div>
                         <div class="form-group full-width"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
+                        
+                        <div class="form-group full-width">
+                            <label for="sell-item-checkbox" style="display: flex; align-items: center; gap: 8px; user-select: none;">
+                                <input type="checkbox" id="sell-item-checkbox" name="sellItem" style="width: auto;">
+                                Sell Inventory Item?
+                            </label>
+                        </div>
+                        <div id="sell-item-container" class="full-width" style="display: none;">
+                            <div class="grid-container" style="grid-template-columns: 2fr 1fr;">
+                                <div class="form-group">
+                                    <label for="inventory-item-select">Select Item</label>
+                                    <select id="inventory-item-select" name="inventoryItem"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="inventory-sale-price">Sale Price ($)</label>
+                                    <input type="number" id="inventory-sale-price" name="inventorySalePrice" min="0" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group full-width customer-form-actions">
                             <button type="submit" id="customer-form-submit-btn" class="btn btn-primary">Add New Customer</button>
                             <button type="button" id="customer-form-cancel-btn" class="btn btn-secondary" style="display: none;">Cancel</button>
@@ -561,6 +603,7 @@
                 <div class="customer-list-header">
                     <h2>Customer List</h2>
                     <input type="search" id="customerSearch" placeholder="Search by name, phone, login...">
+                    <button id="clear-filter-btn" class="btn btn-secondary" style="display: none;">Show All Customers</button>
                 </div>
                 <div class="table-container">
                     <table id="customer-table">
@@ -673,6 +716,7 @@
         const alertModalBody = document.getElementById('alert-modal-body');
         const alertModalClose = document.getElementById('alert-modal-close');
         const confirmationToast = document.getElementById('confirmation-toast');
+        const dashboardGrid = document.getElementById('dashboard-grid');
 
         const navTabsContainer = document.querySelector('.nav-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -680,6 +724,11 @@
         const customerFormHeader = document.getElementById('customer-form-header');
         const customerFormSubmitBtn = document.getElementById('customer-form-submit-btn');
         const customerFormCancelBtn = document.getElementById('customer-form-cancel-btn');
+        const sellItemCheckbox = document.getElementById('sell-item-checkbox');
+        const sellItemContainer = document.getElementById('sell-item-container');
+        const inventoryItemSelect = document.getElementById('inventory-item-select');
+        const inventorySalePrice = document.getElementById('inventory-sale-price');
+        const clearFilterBtn = document.getElementById('clear-filter-btn');
         const expenseForm = document.getElementById('expenseForm');
         const inventoryForm = document.getElementById('inventoryForm');
         const customerTableBody = document.getElementById('customerTableBody');
@@ -689,6 +738,8 @@
         const inventoryTableBody = document.getElementById('inventoryTableBody');
         const activeUsersEl = document.getElementById('activeUsers');
         const expiredUsersEl = document.getElementById('expiredUsers');
+        const unpaidCountEl = document.getElementById('unpaidCount');
+        const unpaidValueEl = document.getElementById('unpaidValue');
         
         const reportMonthEl = document.getElementById('reportMonth');
         const reportIncomeEl = document.getElementById('reportIncome');
@@ -714,9 +765,10 @@
         let alertedCustomers = new Set();
         let userId = "gL1KLYx6NqdokNaHoY3zhUvoRPo1";
         let db;
-        let sortColumn = 'name';
-        let sortDirection = 'asc';
+        let sortColumn = 'createdAt';
+        let sortDirection = 'desc';
         let searchQuery = '';
+        let currentFilter = 'all';
         let lastAction = null;
 
         // --- LOGIN FUNCTIONALITY ---
@@ -841,6 +893,7 @@
             customerFormHeader.textContent = "Create New Customer";
             customerFormSubmitBtn.textContent = "Add New Customer";
             customerFormCancelBtn.style.display = 'none';
+            sellItemContainer.style.display = 'none';
             document.getElementById('subscriptionDate').value = formatDate(new Date());
             calculateEndDate();
             updatePaymentAmount();
@@ -857,6 +910,19 @@
             customerForm.paymentStatus.value = customer.status || 'Unpaid';
             customerForm.paymentAmount.value = customer.amount || 0;
             customerForm.specialNote.value = customer.specialNote || '';
+        };
+
+        const populateInventoryDropdown = () => {
+            inventoryItemSelect.innerHTML = '<option value="">Select an item...</option>';
+            localInventory.forEach(item => {
+                if (item.quantity > 0) {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = `${item.name} (${item.quantity} in stock)`;
+                    option.dataset.saleValue = item.saleValue;
+                    inventoryItemSelect.appendChild(option);
+                }
+            });
         };
 
         // --- RENDER FUNCTIONS ---
@@ -944,26 +1010,51 @@
 
         const displayCustomers = () => {
             const today = new Date(); today.setHours(0, 0, 0, 0);
-            const processedCustomers = localCustomers.map(c => {
+            let customersToDisplay = localCustomers;
+            
+            // 1. Apply master filter
+            if (currentFilter !== 'all') {
+                customersToDisplay = localCustomers.filter(c => {
+                    const isExpired = new Date(c.endDate) < today;
+                    if (currentFilter === 'active') return !isExpired;
+                    if (currentFilter === 'expired') return isExpired;
+                    if (currentFilter === 'unpaid') return c.status === 'Unpaid';
+                    return true;
+                });
+                clearFilterBtn.style.display = 'inline-block';
+            } else {
+                clearFilterBtn.style.display = 'none';
+            }
+
+            // 2. Apply search filter
+            const lowerCaseQuery = searchQuery.toLowerCase();
+            if (searchQuery) {
+                customersToDisplay = customersToDisplay.filter(c =>
+                    c.name?.toLowerCase().includes(lowerCaseQuery) ||
+                    c.phone?.includes(lowerCaseQuery) ||
+                    c.login?.toLowerCase().includes(lowerCaseQuery)
+                );
+            }
+            
+            // 3. Process for display (calculate days left)
+            const processedCustomers = customersToDisplay.map(c => {
                 const endDate = new Date(c.endDate);
                 const daysLeft = Math.ceil((endDate - today) / (1000 * 3600 * 24));
                 return { ...c, daysLeft };
             });
-            const lowerCaseQuery = searchQuery.toLowerCase();
-            const filteredCustomers = !searchQuery ? processedCustomers : processedCustomers.filter(c =>
-                c.name?.toLowerCase().includes(lowerCaseQuery) ||
-                c.phone?.includes(lowerCaseQuery) ||
-                c.login?.toLowerCase().includes(lowerCaseQuery)
-            );
-            filteredCustomers.sort((a, b) => {
+
+            // 4. Sort
+            processedCustomers.sort((a, b) => {
                 const valA = a[sortColumn] ? a[sortColumn].toString().toLowerCase() : '';
                 const valB = b[sortColumn] ? b[sortColumn].toString().toLowerCase() : '';
                 let comparison = 0;
                 if (valA > valB) { comparison = 1; } else if (valA < valB) { comparison = -1; }
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
+
+            // 5. Render
             customerTableBody.innerHTML = '';
-            filteredCustomers.forEach(customer => {
+            processedCustomers.forEach(customer => {
                 const row = document.createElement('tr'); row.dataset.id = customer.id;
                 if (customer.daysLeft < 0) { row.classList.add('row-expired'); } 
                 else if (customer.daysLeft < 5) { row.classList.add('row-expires-soon'); }
@@ -1038,12 +1129,24 @@
 
         const updateSummary = () => {
             let activeCount = 0; let expiredCount = 0;
+            let unpaidCount = 0; let unpaidValue = 0;
             const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+            
             localCustomers.forEach(c => {
                 new Date(c.endDate) < todayStart ? expiredCount++ : activeCount++;
             });
+
+            allCustomers.forEach(c => {
+                if (c.status === 'Unpaid') {
+                    unpaidCount++;
+                    unpaidValue += (Number(c.amount) || 0);
+                }
+            });
+
             activeUsersEl.textContent = activeCount;
             expiredUsersEl.textContent = expiredCount;
+            unpaidCountEl.textContent = unpaidCount;
+            unpaidValueEl.textContent = formatCurrency(unpaidValue);
         };
 
         const updateInventorySummary = () => {
@@ -1082,14 +1185,32 @@
             }
         };
 
+        const switchToTab = (tabName) => {
+            navTabsContainer.querySelector('.active').classList.remove('active');
+            navTabsContainer.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            tabContents.forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab-content`).classList.add('active');
+        };
+
         function setupEventListeners() {
             navTabsContainer.addEventListener('click', (e) => {
                 if (e.target.matches('.nav-tab')) {
-                    navTabsContainer.querySelector('.active').classList.remove('active');
-                    e.target.classList.add('active');
-                    tabContents.forEach(content => content.classList.remove('active'));
-                    document.getElementById(`${e.target.dataset.tab}-tab-content`).classList.add('active');
+                    switchToTab(e.target.dataset.tab);
                 }
+            });
+
+            dashboardGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.summary-card');
+                if (card && card.dataset.filter) {
+                    currentFilter = card.dataset.filter;
+                    switchToTab('customers');
+                    displayCustomers();
+                }
+            });
+
+            clearFilterBtn.addEventListener('click', () => {
+                currentFilter = 'all';
+                displayCustomers();
             });
             
             customerForm.addEventListener('submit', async (e) => {
@@ -1110,16 +1231,44 @@
                     const newNameInput = formData.get('customerName').trim();
                     if (!newNameInput) { alert("Customer name cannot be empty."); return; }
                     const newNameLower = newNameInput.toLowerCase();
-                    const isDuplicate = allCustomers.some(c => c.name.trim().toLowerCase() === newNameLower);
-                    if (isDuplicate) { alert(`Error: A customer named "${newNameInput}" already exists.`); return; }
-
+                    if (allCustomers.some(c => c.name.trim().toLowerCase() === newNameLower)) {
+                        alert(`Error: A customer named "${newNameInput}" already exists.`); return;
+                    }
+                    const { login, password } = generateCredentials(newNameInput);
                     const newCustomer = {
-                        name: newNameInput, phone: formData.get('phone'), login: formData.get('login'),
-                        password: formData.get('password'), macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
+                        name: newNameInput, phone: formData.get('phone'), login, password,
+                        macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
                         endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
-                        amount: parseFloat(formData.get('paymentAmount')), archived: false, specialNote: formData.get('specialNote')
+                        amount: parseFloat(formData.get('paymentAmount')), archived: false, specialNote: formData.get('specialNote'),
+                        createdAt: new Date().toISOString()
                     };
-                    await addDoc(collection(db, `users/${userId}/customers`), newCustomer);
+                    
+                    const batch = writeBatch(db);
+                    const newCustomerRef = doc(collection(db, `users/${userId}/customers`));
+                    batch.set(newCustomerRef, newCustomer);
+
+                    if (sellItemCheckbox.checked) {
+                        const itemId = inventoryItemSelect.value;
+                        const price = parseFloat(inventorySalePrice.value);
+                        if (!itemId || isNaN(price)) { alert("Please select an item and enter a valid sale price."); return; }
+                        
+                        const itemToSell = localInventory.find(i => i.id === itemId);
+                        if (itemToSell && itemToSell.quantity > 0) {
+                            const newQuantity = itemToSell.quantity - 1;
+                            batch.update(doc(db, `users/${userId}/inventory`, itemId), { quantity: newQuantity });
+                            const incomeDocRef = doc(collection(db, `users/${userId}/income`));
+                            batch.set(incomeDocRef, {
+                                date: new Date().toISOString(), source: 'inventory_sale_at_signup',
+                                itemId: itemId, itemName: itemToSell.name, quantitySold: 1,
+                                salePrice: price, totalIncome: price,
+                                profit: (price - itemToSell.purchaseCost)
+                            });
+                        } else {
+                           alert("Selected item is out of stock."); return;
+                        }
+                    }
+
+                    await batch.commit();
                     const subType = formData.get('subscriptionType');
                     const subText = subType === 'trial' ? 'a trial' : `a ${subType}-month`;
                     showConfirmationToast(`Customer "${newCustomer.name}" created with ${subText} subscription.`);
@@ -1134,6 +1283,14 @@
                 }
             });
             customerFormCancelBtn.addEventListener('click', resetCustomerForm);
+
+            sellItemCheckbox.addEventListener('change', () => {
+                sellItemContainer.style.display = sellItemCheckbox.checked ? 'block' : 'none';
+            });
+            inventoryItemSelect.addEventListener('change', () => {
+                const selectedOption = inventoryItemSelect.options[inventoryItemSelect.selectedIndex];
+                inventorySalePrice.value = selectedOption.dataset.saleValue || '';
+            });
 
             expenseForm.addEventListener('submit', e => {
                 e.preventDefault();
@@ -1322,7 +1479,7 @@
             });
             onSnapshot(collection(db, `users/${userId}/inventory`), (snapshot) => {
                 localInventory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderInventoryTable(); updateInventorySummary();
+                renderInventoryTable(); updateInventorySummary(); populateInventoryDropdown();
             });
              onSnapshot(collection(db, `users/${userId}/income`), (snapshot) => {
                 localIncome = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
