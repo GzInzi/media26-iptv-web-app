@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1186,16 +1185,30 @@
         };
 
         const switchToTab = (tabName) => {
+            const newUrl = `#${tabName}`;
+            const pageTitle = `Media26 - ${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+            history.pushState({ tab: tabName }, pageTitle, newUrl);
+            document.title = pageTitle;
+            
             navTabsContainer.querySelector('.active').classList.remove('active');
-            navTabsContainer.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            const newActiveTab = navTabsContainer.querySelector(`[data-tab="${tabName}"]`);
+            if (newActiveTab) newActiveTab.classList.add('active');
+            
             tabContents.forEach(content => content.classList.remove('active'));
-            document.getElementById(`${tabName}-tab-content`).classList.add('active');
+            const newActiveContent = document.getElementById(`${tabName}-tab-content`);
+            if (newActiveContent) newActiveContent.classList.add('active');
         };
 
         function setupEventListeners() {
             navTabsContainer.addEventListener('click', (e) => {
                 if (e.target.matches('.nav-tab')) {
                     switchToTab(e.target.dataset.tab);
+                }
+            });
+
+            window.addEventListener('popstate', (e) => {
+                if (e.state && e.state.tab) {
+                    switchToTab(e.state.tab);
                 }
             });
 
