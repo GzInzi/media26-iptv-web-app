@@ -86,6 +86,35 @@
             right: 20px;
         }
 
+        #renew-modal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+         #renew-modal h3 {
+            margin-bottom: 0;
+        }
+        #renew-modal .form-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        #renew-modal .form-group label {
+            font-weight: 600;
+            width: 120px;
+        }
+        #renew-modal .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        #renew-modal .close-btn {
+            background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);
+        }
+
         /* Login Overlay Styles */
         #login-overlay {
             position: fixed;
@@ -289,10 +318,10 @@
             box-sizing: border-box;
         }
         .btn {
-            padding: 10px 15px;
+            padding: 8px 12px;
             border: 1px solid transparent;
             border-radius: 0.375rem;
-            font-size: 1em;
+            font-size: 0.9em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -313,6 +342,16 @@
             color: #9ca3af;
             cursor: not-allowed;
         }
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .btn-icon:hover {
+            background-color: #e5e7eb;
+        }
         
         .customer-form-actions {
             display: flex;
@@ -321,8 +360,22 @@
 
         .table-container { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap;}
-        thead th { background-color: #f9fafb; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; }
+        th, td { 
+            padding: 10px 12px;
+            text-align: left; 
+            border: 1px solid var(--border-color);
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        thead th { 
+            background-color: #f1f5f9; 
+            font-size: 0.8em; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+        }
         .actions-cell { display: flex; gap: 8px; }
         .row-expired { background-color: #fee2e2; }
         .row-expires-soon { background-color: #fef2f2; }
@@ -333,6 +386,12 @@
             font-size: 0.8em;
             font-weight: 600;
             text-transform: uppercase;
+            display: inline-block;
+        }
+        .payment-status-select {
+            padding: 4px 8px;
+            font-size: 0.9em;
+            max-width: 110px;
         }
         .status-paid {
             background-color: #dcfce7;
@@ -341,6 +400,31 @@
         .status-unpaid {
             background-color: #fef9c3;
             color: #ca8a04;
+        }
+        .sub-status-active {
+             background-color: #dcfce7;
+             color: #16a34a;
+        }
+        .sub-status-expired {
+             background-color: #fee2e2;
+             color: var(--danger-color);
+        }
+        .expiry-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .expiry-date.active {
+            background-color: var(--success-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .expiry-date.expired {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
         }
 
         .customer-list-header {
@@ -357,6 +441,12 @@
             border: 1px solid var(--border-color);
             width: 300px;
             font-size: 0.9em;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #customerSearch:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            outline: none;
         }
         thead th[data-sort] {
             cursor: pointer;
@@ -402,9 +492,10 @@
             border: 1px solid var(--border-color);
         }
         
-        .renew-select {
-            padding: 6px 8px;
-            font-size: 0.9em;
+        .highlight-label {
+            font-weight: 600;
+            color: var(--accent-color);
+            font-size: 1em;
         }
         
         /* Mobile Responsiveness */
@@ -467,6 +558,32 @@
             <h3 id="alert-modal-title"></h3>
             <div id="alert-modal-body"></div>
             <button id="alert-modal-close" class="btn btn-primary" style="margin-top: 20px; width: 100%;">OK</button>
+        </div>
+    </div>
+    
+    <div id="renew-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                 <h3>Renew Subscription</h3>
+                 <button class="close-btn" id="renew-modal-close">&times;</button>
+            </div>
+            <form id="renew-form">
+                <div class="form-group">
+                    <label for="renew-credits">Select Credits</label>
+                    <select id="renew-credits" name="renew-credits"></select>
+                </div>
+                 <div class="form-group">
+                    <label>Type</label>
+                    <div>
+                        <input type="radio" id="renew-type-add" name="renew-type" value="add" checked>
+                        <label for="renew-type-add">Add</label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="renew-modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -549,7 +666,7 @@
 
         <div id="customers-tab-content" class="tab-content">
             <h1 id="customer-form-title">Customer Management</h1>
-            <div class="card">
+            <div id="new-customer-card" class="card">
                 <h2 id="customer-form-header">Create New Customer</h2>
                 <form id="newCustomerForm">
                      <div class="grid-container">
@@ -557,7 +674,7 @@
                         <div class="form-group"><label for="phone">Phone Number</label><input type="tel" id="phone" name="phone"></div>
                         <div class="form-group"><label for="login">Login</label><input type="text" id="login" name="login" readonly></div>
                         <div class="form-group"><label for="password">Password</label><input type="text" id="password" name="password" readonly></div>
-                        <div class="form-group"><label for="macAddress">MAC Address (Optional)</label><input type="text" id="macAddress" name="macAddress"></div>
+                        <div class="form-group"><label for="macAddress">MAC Address (Optional)</label><input type="text" id="macAddress" name="macAddress" value="00:1A:79:"></div>
                         <div class="form-group">
                             <label for="subscriptionType">Subscription</label>
                             <select id="subscriptionType" name="subscriptionType" required>
@@ -570,10 +687,9 @@
                         <div class="form-group"><label for="subscriptionEndingDate">Subscription Ending Date</label><input type="text" id="subscriptionEndingDate" name="subscriptionEndingDate" readonly></div>
                         <div class="form-group"><label for="paymentStatus">Payment Status</label><select id="paymentStatus" name="paymentStatus" required><option>Paid</option><option>Unpaid</option></select></div>
                         <div class="form-group"><label for="paymentAmount">Payment Amount ($)</label><input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" required></div>
-                        <div class="form-group full-width"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
                         
                         <div class="form-group full-width">
-                            <label for="sell-item-checkbox" style="display: flex; align-items: center; gap: 8px; user-select: none;">
+                            <label for="sell-item-checkbox" class="highlight-label" style="display: flex; align-items: center; gap: 8px; user-select: none;">
                                 <input type="checkbox" id="sell-item-checkbox" name="sellItem" style="width: auto;">
                                 Sell Inventory Item?
                             </label>
@@ -590,6 +706,7 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="form-group full-width"><label for="specialNote">Special Note</label><textarea id="specialNote" name="specialNote"></textarea></div>
 
                         <div class="form-group full-width customer-form-actions">
                             <button type="submit" id="customer-form-submit-btn" class="btn btn-primary">Add New Customer</button>
@@ -611,10 +728,9 @@
                                 <th data-sort="name">Name</th>
                                 <th data-sort="phone">Phone</th>
                                 <th data-sort="subDate">Started On</th>
-                                <th data-sort="endDate">Ends On</th>
-                                <th data-sort="daysLeft">Days Left</th>
-                                <th data-sort="status">Payment Status</th>
-                                <th>Renew</th>
+                                <th data-sort="endDate">Expiry</th>
+                                <th data-sort="status">Subscription Status</th>
+                                <th data-sort="paymentStatus">Payment Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -714,8 +830,15 @@
         const alertModalTitle = document.getElementById('alert-modal-title');
         const alertModalBody = document.getElementById('alert-modal-body');
         const alertModalClose = document.getElementById('alert-modal-close');
+        const renewModal = document.getElementById('renew-modal');
+        const renewModalClose = document.getElementById('renew-modal-close');
+        const renewModalCancel = document.getElementById('renew-modal-cancel');
+        const renewForm = document.getElementById('renew-form');
+        const renewCreditsSelect = document.getElementById('renew-credits');
         const confirmationToast = document.getElementById('confirmation-toast');
         const dashboardGrid = document.getElementById('dashboard-grid');
+        const customerFormTitle = document.getElementById('customer-form-title');
+        const newCustomerCard = document.getElementById('new-customer-card');
 
         const navTabsContainer = document.querySelector('.nav-tabs');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -756,6 +879,7 @@
         // --- GLOBAL & STATE VARIABLES ---
         let enteredCode = '';
         let currentlyEditingCustomerId = null;
+        let customerToRenewId = null;
         let localCustomers = [];
         let allCustomers = [];
         let localExpenses = [];
@@ -840,6 +964,8 @@
         };
 
         alertModalClose.addEventListener('click', () => alertModal.classList.remove('show'));
+        renewModalClose.addEventListener('click', () => renewModal.classList.remove('show'));
+        renewModalCancel.addEventListener('click', () => renewModal.classList.remove('show'));
 
         // --- UTILITY FUNCTIONS ---
         const formatCurrency = (amount) => (amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -856,13 +982,17 @@
             d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
             return d.toISOString().split('T')[0];
         };
+        const capitalize = (str) => {
+            if (!str) return '';
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        };
         const generateCredentials = (fullName) => {
             if (!fullName) { return { login: '', password: '' }; }
             const names = fullName.trim().split(' ').filter(n => n);
             const firstName = (names[0] || '').toUpperCase();
             
             const login = 'M26' + firstName.substring(0, 2);
-            const password = 'M26' + firstName.substring(0, 5);
+            const password = 'M26' + firstName.substring(0, 3);
             
             return { login, password };
         };
@@ -889,6 +1019,7 @@
         const resetCustomerForm = () => {
             currentlyEditingCustomerId = null;
             customerForm.reset();
+            document.getElementById('macAddress').value = "00:1A:79:";
             customerFormHeader.textContent = "Create New Customer";
             customerFormSubmitBtn.textContent = "Add New Customer";
             customerFormCancelBtn.style.display = 'none';
@@ -903,7 +1034,7 @@
             customerForm.phone.value = customer.phone || '';
             customerForm.login.value = customer.login || '';
             customerForm.password.value = customer.password || '';
-            customerForm.macAddress.value = customer.macAddress || '';
+            customerForm.macAddress.value = customer.macAddress || '00:1A:79:';
             customerForm.subscriptionDate.value = formatDate(customer.subDate);
             customerForm.subscriptionEndingDate.value = formatDate(customer.endDate);
             customerForm.paymentStatus.value = customer.status || 'Unpaid';
@@ -926,42 +1057,29 @@
 
         // --- RENDER FUNCTIONS ---
         const renderRow_ViewMode = (customer) => {
-            const status = customer.daysLeft < 0 ? 'Expired' : `${customer.daysLeft} days`;
-            let renewOptions = '<option value="">Add Sub...</option>';
-            for (let i = 1; i <= 12; i++) {
-                renewOptions += `<option value="${i}">${i} Month${i > 1 ? 's' : ''}</option>`;
-            }
-
+            const isExpired = new Date(customer.endDate) < new Date();
+            const statusText = isExpired ? 'Expired' : 'Active';
+            const statusClass = isExpired ? 'sub-status-expired' : 'sub-status-active';
+            const expiryDateClass = isExpired ? 'expired' : 'active';
+           
             return `
                 <td>${customer.name}</td>
                 <td>${customer.phone || '-'}</td>
                 <td>${formatDisplayDate(customer.subDate)}</td>
-                <td>${formatDisplayDate(customer.endDate)}</td>
-                <td>${status}</td>
-                <td><span class="status-badge status-${(customer.status || 'unpaid').toLowerCase()}">${customer.status}</span></td>
-                <td><select class="renew-select" data-id="${customer.id}">${renewOptions}</select></td>
+                <td class="expiry-cell">
+                    <span class="expiry-date ${expiryDateClass}">${formatDisplayDate(customer.endDate)}</span>
+                     <button class="btn-icon renew-btn" data-id="${customer.id}">✏️</button>
+                </td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td>
+                    <select class="payment-status-select" data-id="${customer.id}">
+                        <option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                        <option value="Unpaid" ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+                    </select>
+                </td>
                 <td class="actions-cell">
                     <button class="btn btn-edit" data-id="${customer.id}">Edit</button>
                     <button class="btn btn-danger btn-delete-customer" data-id="${customer.id}">Delete</button>
-                </td>`;
-        };
-        const renderRow_EditMode = (customer) => {
-            return `
-                <td><input type="text" data-prop="name" value="${customer.name || ''}"></td>
-                <td><input type="tel" data-prop="phone" value="${customer.phone || ''}"></td>
-                <td><input type="date" data-prop="subDate" value="${formatDate(customer.subDate)}"></td>
-                <td><input type="date" data-prop="endDate" value="${formatDate(customer.endDate)}"></td>
-                <td>...</td>
-                <td>
-                    <select data-prop="status">
-                        <option ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
-                        <option ${customer.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
-                    </select>
-                </td>
-                <td>-</td>
-                <td class="actions-cell">
-                    <button class="btn btn-save btn-save-customer" data-id="${customer.id}">Save</button>
-                    <button class="btn btn-secondary btn-cancel-customer" data-id="${customer.id}">Cancel</button>
                 </td>`;
         };
         
@@ -1011,7 +1129,6 @@
             const today = new Date(); today.setHours(0, 0, 0, 0);
             let customersToDisplay = localCustomers;
             
-            // 1. Apply master filter
             if (currentFilter !== 'all') {
                 customersToDisplay = localCustomers.filter(c => {
                     const isExpired = new Date(c.endDate) < today;
@@ -1024,8 +1141,6 @@
             } else {
                 clearFilterBtn.style.display = 'none';
             }
-
-            // 2. Apply search filter
             const lowerCaseQuery = searchQuery.toLowerCase();
             if (searchQuery) {
                 customersToDisplay = customersToDisplay.filter(c =>
@@ -1035,14 +1150,12 @@
                 );
             }
             
-            // 3. Process for display (calculate days left)
             const processedCustomers = customersToDisplay.map(c => {
                 const endDate = new Date(c.endDate);
                 const daysLeft = Math.ceil((endDate - today) / (1000 * 3600 * 24));
                 return { ...c, daysLeft };
             });
 
-            // 4. Sort
             processedCustomers.sort((a, b) => {
                 const valA = a[sortColumn] ? a[sortColumn].toString().toLowerCase() : '';
                 const valB = b[sortColumn] ? b[sortColumn].toString().toLowerCase() : '';
@@ -1051,7 +1164,6 @@
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
 
-            // 5. Render
             customerTableBody.innerHTML = '';
             processedCustomers.forEach(customer => {
                 const row = document.createElement('tr'); row.dataset.id = customer.id;
@@ -1184,13 +1296,8 @@
             }
         };
 
-        const switchToTab = (tabName) => {
-            const newUrl = `#${tabName}`;
-            const pageTitle = `Media26 - ${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
-            history.pushState({ tab: tabName }, pageTitle, newUrl);
-            document.title = pageTitle;
-            
-            navTabsContainer.querySelector('.active').classList.remove('active');
+        const setActiveTab = (tabName) => {
+            navTabsContainer.querySelector('.active')?.classList.remove('active');
             const newActiveTab = navTabsContainer.querySelector(`[data-tab="${tabName}"]`);
             if (newActiveTab) newActiveTab.classList.add('active');
             
@@ -1199,23 +1306,42 @@
             if (newActiveContent) newActiveContent.classList.add('active');
         };
 
+        const switchToTab = (tabName, fromHistory = false) => {
+            setActiveTab(tabName);
+            if (!fromHistory) {
+                const newUrl = `#${tabName}`;
+                const pageTitle = `Media26 - ${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+                history.pushState({ tab: tabName }, pageTitle, newUrl);
+                document.title = pageTitle;
+            }
+        };
+
         function setupEventListeners() {
             navTabsContainer.addEventListener('click', (e) => {
                 if (e.target.matches('.nav-tab')) {
-                    switchToTab(e.target.dataset.tab);
+                    const tabName = e.target.dataset.tab;
+                    switchToTab(tabName);
+                    if (tabName === 'customers') {
+                        currentFilter = 'all';
+                        customerFormTitle.textContent = 'Customer Management';
+                        newCustomerCard.style.display = 'block';
+                        displayCustomers();
+                    }
                 }
             });
 
             window.addEventListener('popstate', (e) => {
-                if (e.state && e.state.tab) {
-                    switchToTab(e.state.tab);
-                }
+                const tab = (e.state && e.state.tab) || 'dashboard';
+                setActiveTab(tab);
             });
 
             dashboardGrid.addEventListener('click', (e) => {
                 const card = e.target.closest('.summary-card');
                 if (card && card.dataset.filter) {
                     currentFilter = card.dataset.filter;
+                    const filterText = currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1);
+                    customerFormTitle.textContent = `Filtered List: ${filterText} Customers`;
+                    newCustomerCard.style.display = 'none';
                     switchToTab('customers');
                     displayCustomers();
                 }
@@ -1223,6 +1349,8 @@
 
             clearFilterBtn.addEventListener('click', () => {
                 currentFilter = 'all';
+                customerFormTitle.textContent = 'Customer Management';
+                newCustomerCard.style.display = 'block';
                 displayCustomers();
             });
             
@@ -1232,7 +1360,7 @@
                 
                 if(currentlyEditingCustomerId) {
                      const customerData = {
-                        name: formData.get('customerName').trim(), phone: formData.get('phone'), 
+                        name: capitalize(formData.get('customerName').trim()), phone: formData.get('phone'), 
                         macAddress: formData.get('macAddress'), subDate: formData.get('subscriptionDate'),
                         endDate: formData.get('subscriptionEndingDate'), status: formData.get('paymentStatus'),
                         amount: parseFloat(formData.get('paymentAmount')), specialNote: formData.get('specialNote'),
@@ -1241,7 +1369,7 @@
                     showConfirmationToast(`Customer "${customerData.name}" has been updated.`);
                     resetCustomerForm();
                 } else {
-                    const newNameInput = formData.get('customerName').trim();
+                    const newNameInput = capitalize(formData.get('customerName').trim());
                     if (!newNameInput) { alert("Customer name cannot be empty."); return; }
                     const newNameLower = newNameInput.toLowerCase();
                     if (allCustomers.some(c => c.name.trim().toLowerCase() === newNameLower)) {
@@ -1344,6 +1472,9 @@
                         customerFormCancelBtn.style.display = "block";
                         window.scrollTo(0,0);
                     }
+                } else if (target.classList.contains('renew-btn')) {
+                    customerToRenewId = docId;
+                    renewModal.classList.add('show');
                 } else if (target.classList.contains('btn-delete-customer')) {
                     const customer = allCustomers.find(c => c.id === docId);
                     const isExpired = new Date(customer.endDate) < new Date();
@@ -1358,26 +1489,37 @@
                     }
                 }
             });
+            
+            renewForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!customerToRenewId) return;
+
+                const months = parseInt(renewCreditsSelect.value, 10);
+                const customer = allCustomers.find(c => c.id === customerToRenewId);
+                const originalData = { ...customer };
+
+                const amount = months * 10;
+                const currentEndDate = new Date(customer.endDate);
+                const renewStartDate = new Date() > currentEndDate ? new Date() : currentEndDate;
+                const newEndDate = new Date(renewStartDate);
+                newEndDate.setMonth(newEndDate.getMonth() + months);
+
+                updateDoc(doc(db, `users/${userId}/customers`, customerToRenewId), {
+                    endDate: formatDate(newEndDate),
+                    amount: amount,
+                    status: 'Paid'
+                });
+                setUndoAction(() => { updateDoc(doc(db, `users/${userId}/customers`, customerToRenewId), originalData); });
+                renewModal.classList.remove('show');
+                customerToRenewId = null;
+            });
 
             customerTableBody.addEventListener('change', e => {
                 const target = e.target;
-                if (target.classList.contains('renew-select')) {
+                if (target.classList.contains('payment-status-select')) {
                     const docId = target.dataset.id;
-                    const months = parseInt(target.value, 10);
-                    target.value = "";
-                    if (!docId || isNaN(months)) return;
-
-                    const customer = allCustomers.find(c => c.id === docId);
-                    const originalData = { ...customer };
-                    const amount = months * 10;
-                    const newSubDate = new Date();
-                    const newEndDate = new Date(newSubDate); newEndDate.setMonth(newEndDate.getMonth() + months);
-
-                    updateDoc(doc(db, `users/${userId}/customers`, docId), {
-                        subDate: formatDate(newSubDate), endDate: formatDate(newEndDate),
-                        amount: amount, status: 'Paid', archived: false
-                    });
-                    setUndoAction(() => { updateDoc(doc(db, `users/${userId}/customers`, docId), originalData); });
+                    const newStatus = target.value;
+                    updateDoc(doc(db, `users/${userId}/customers`, docId), { status: newStatus });
                 }
             });
             
@@ -1475,10 +1617,17 @@
             db = getFirestore(app);
             setupEventListeners();
             
+            let creditsOptions = '';
+            for (let i = 1; i <= 12; i++) {
+                creditsOptions += `<option value="${i}">${i}</option>`;
+            }
+            renewCreditsSelect.innerHTML = creditsOptions;
+            
             const today = new Date();
             const year = today.getFullYear();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             reportMonthEl.value = `${year}-${month}`;
+            resetCustomerForm();
 
             onSnapshot(collection(db, `users/${userId}/customers`), (snapshot) => {
                 allCustomers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1499,10 +1648,8 @@
                 updateMonthlyReport();
             });
 
-            document.getElementById('subscriptionDate').value = today.toISOString().split('T')[0];
-            document.getElementById('expenseDate').value = today.toISOString().split('T')[0];
-            calculateEndDate();
-            updatePaymentAmount();
+            const initialTab = window.location.hash.substring(1) || 'dashboard';
+            setActiveTab(initialTab);
         }
         
     </script>
