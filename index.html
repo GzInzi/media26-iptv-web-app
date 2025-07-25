@@ -377,8 +377,8 @@
             letter-spacing: 0.5px; 
         }
         .actions-cell { display: flex; gap: 8px; }
-        .row-expired { background-color: #fee2e2; }
-        .row-expires-soon { background-color: #fef2f2; }
+        .row-expired { background-color: #fee2e2 !important; }
+        .row-expires-soon { background-color: #fef2f2 !important; }
 
         .status-badge {
             padding: 4px 12px;
@@ -389,9 +389,10 @@
             display: inline-block;
         }
         .payment-status-select {
-            padding: 4px 8px;
+            padding: 6px 8px;
             font-size: 0.9em;
             max-width: 110px;
+            border-radius: 6px;
         }
         .status-paid {
             background-color: #dcfce7;
