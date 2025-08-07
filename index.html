@@ -379,37 +379,33 @@
         .actions-cell { display: flex; gap: 8px; }
         .row-expired { background-color: #fee2e2 !important; }
         .row-expires-soon { background-color: #fef2f2 !important; }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: 600;
-            text-transform: uppercase;
+        
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
             display: inline-block;
+            margin-right: 8px;
+            flex-shrink: 0;
         }
+        .dot-active {
+            background-color: var(--success-color);
+        }
+        .dot-expired {
+            background-color: var(--danger-color);
+        }
+        .subscription-status-cell {
+             display: flex;
+             align-items: center;
+        }
+
         .payment-status-select {
             padding: 6px 8px;
             font-size: 0.9em;
             max-width: 110px;
             border-radius: 6px;
         }
-        .status-paid {
-            background-color: #dcfce7;
-            color: #16a34a;
-        }
-        .status-unpaid {
-            background-color: #fef9c3;
-            color: #ca8a04;
-        }
-        .sub-status-active {
-             background-color: #dcfce7;
-             color: #16a34a;
-        }
-        .sub-status-expired {
-             background-color: #fee2e2;
-             color: var(--danger-color);
-        }
+
         .expiry-cell {
             display: flex;
             align-items: center;
@@ -1059,8 +1055,13 @@
         // --- RENDER FUNCTIONS ---
         const renderRow_ViewMode = (customer) => {
             const isExpired = new Date(customer.endDate) < new Date();
-            const statusText = isExpired ? 'Expired' : 'Active';
-            const statusClass = isExpired ? 'sub-status-expired' : 'sub-status-active';
+            let statusText = '';
+            if (customer.daysLeft >= 0) {
+                statusText = `${customer.daysLeft} days left`;
+            } else {
+                statusText = `Expired ${Math.abs(customer.daysLeft)} days ago`;
+            }
+            const statusDotClass = isExpired ? 'dot-expired' : 'dot-active';
             const expiryDateClass = isExpired ? 'expired' : 'active';
            
             return `
@@ -1071,7 +1072,10 @@
                     <span class="expiry-date ${expiryDateClass}">${formatDisplayDate(customer.endDate)}</span>
                      <button class="btn-icon renew-btn" data-id="${customer.id}">✏️</button>
                 </td>
-                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td class="subscription-status-cell">
+                    <span class="status-dot ${statusDotClass}"></span>
+                    <span>${statusText}</span>
+                </td>
                 <td>
                     <select class="payment-status-select" data-id="${customer.id}">
                         <option value="Paid" ${customer.status === 'Paid' ? 'selected' : ''}>Paid</option>
